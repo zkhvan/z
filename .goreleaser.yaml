@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 1
+
+project_name: z
+
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+
+release:
+  prerelease: auto
+  name_template: "Zhenya's CLI {{.Version}}"
+
+builds:
+  - main: ./cmd/z
+    binary: bin/z
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+    ldflags:
+      - -s -w -X github.com/zkhvan/z/internal/build.Version={{.Version}} -X github.com/zkhvan/z/internal/build.Date={{time "2006-01-02"}}
+
+archives:
+  - format: tar.gz
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
