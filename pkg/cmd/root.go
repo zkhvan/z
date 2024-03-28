@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zkhvan/z/pkg/cmd/plugin"
 	versionCmd "github.com/zkhvan/z/pkg/cmd/version"
 	"github.com/zkhvan/z/pkg/cmdutil"
 )
@@ -18,6 +19,15 @@ func NewCmdRoot(f *cmdutil.Factory, version, date string) (*cobra.Command, error
 		Long:  `Work seamlessly with the command line.`,
 		Annotations: map[string]string{
 			"versionInfo": versionCmd.Format(version, date),
+		},
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Name() == cobra.ShellCompRequestCmd {
+				// This is the __complete or __completeNoDesc command which
+				// indicates shell completion has been requested.
+				plugin.SetupPluginCompletion(cmd, args)
+			}
+
+			return nil
 		},
 	}
 
