@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zkhvan/z/pkg/cmd/plugin"
+	tmuxCmd "github.com/zkhvan/z/pkg/cmd/tmux"
 	versionCmd "github.com/zkhvan/z/pkg/cmd/version"
 	"github.com/zkhvan/z/pkg/cmdutil"
 )
@@ -41,6 +42,7 @@ func NewCmdRoot(f *cmdutil.Factory, version, date string) (*cobra.Command, error
 
 	// Commands
 	cmd.AddCommand(versionCmd.NewCmdVersion(f, version, date))
+	cmd.AddCommand(tmuxCmd.NewCmdTmux(f))
 
 	if f.PluginHandler == nil {
 		return cmd, nil
