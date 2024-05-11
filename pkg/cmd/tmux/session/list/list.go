@@ -14,7 +14,7 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 		Use:   "list",
 		Short: "List tmux sessions",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sessions, err := tmux.ListSessions(cmd.Context())
+			sessions, err := tmux.ListSessions(cmd.Context(), nil)
 			if err != nil {
 				return err
 			}

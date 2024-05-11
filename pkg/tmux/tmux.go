@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/samber/lo"
 )
 
 type Session struct {
@@ -16,8 +18,55 @@ type Session struct {
 	Name     string
 }
 
-func ListSessions(ctx context.Context) ([]Session, error) {
-	cmd := exec.CommandContext(ctx,
+func CurrentSessionID(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(
+		ctx,
+		"tmux",
+		"display-message",
+		"-p", "#{session_id}",
+	)
+
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf(
+			"error running %q: %w",
+			cmd.String(),
+			err,
+		)
+	}
+	out = bytes.TrimSpace(out)
+
+	return string(out), nil
+}
+
+func SwitchClient(ctx context.Context, session Session) error {
+	cmd := exec.CommandContext(
+		ctx,
+		"tmux",
+		"switch-client",
+		"-t", session.ID,
+	)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("error running %q: %w", cmd.String(), err)
+	}
+
+	return nil
+}
+
+type ListOptions struct {
+	// ExcludeCurrentSession will filter out the currently active session. If
+	// no session is attached, it will filter out the last active session.
+	ExcludeCurrentSession bool
+}
+
+func ListSessions(ctx context.Context, opts *ListOptions) ([]Session, error) {
+	if opts == nil {
+		opts = &ListOptions{}
+	}
+
+	cmd := exec.CommandContext(
+		ctx,
 		"tmux",
 		"list-sessions",
 		"-F", "#{session_id}:#{session_attached}:#{session_name}",
@@ -61,6 +110,15 @@ func ListSessions(ctx context.Context) ([]Session, error) {
 
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("error scanning: %w", err)
+	}
+
+	if opts.ExcludeCurrentSession {
+		// If there's an error getting the current session, just ignore it.
+		if currentSessionID, err := CurrentSessionID(ctx); err == nil {
+			sessions = lo.Reject(sessions, func(s Session, _ int) bool {
+				return s.ID == currentSessionID
+			})
+		}
 	}
 
 	return sessions, nil
