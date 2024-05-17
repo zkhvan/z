@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -122,4 +123,48 @@ func ListSessions(ctx context.Context, opts *ListOptions) ([]Session, error) {
 	}
 
 	return sessions, nil
+}
+
+type NewOptions struct {
+	Name string
+	Dir  string
+}
+
+func NewSession(ctx context.Context, opts *NewOptions) error {
+	if opts == nil {
+		opts = &NewOptions{}
+	}
+
+	cmd := exec.CommandContext(
+		ctx,
+		"tmux",
+		"new-session",
+		// Creates the session in the background. This prevents nested tmux
+		// sessions.
+		"-d",
+		// Print the newly created session_id
+		"-P", "-F", "#{session_id}",
+	)
+
+	if len(opts.Name) > 0 {
+		cmd.Args = append(cmd.Args, "-s", opts.Name)
+	}
+
+	if len(opts.Dir) > 0 {
+		cmd.Args = append(cmd.Args, "-c", opts.Dir)
+	}
+
+	output, err := cmd.Output()
+	if err != nil {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			if !bytes.HasPrefix(exitError.Stderr, []byte("duplicate session")) {
+				return fmt.Errorf("error running %q: %w", cmd.String(), err)
+			}
+		}
+	}
+	output = bytes.TrimSpace(output)
+
+	// The new session has been created successfully, now switch to it.
+	return SwitchClient(ctx, Session{ID: string(output)})
 }
