@@ -2,13 +2,19 @@ package list
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
+
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/project"
 )
 
 func NewCmdList(f *cmdutil.Factory) *cobra.Command {
+	var (
+		fullPath bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -21,12 +27,20 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			for _, result := range results {
-				fmt.Fprintln(f.IOStreams.Out, result.Path)
+				path := result.Path
+
+				if fullPath {
+					path = filepath.Join(os.ExpandEnv("$HOME/Projects"), path)
+				}
+
+				fmt.Fprintln(f.IOStreams.Out, path)
 			}
 
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&fullPath, "full-path", false, "Output the full path")
 
 	return cmd
 }
