@@ -40,12 +40,24 @@ func CurrentSessionID(ctx context.Context) (string, error) {
 	return string(out), nil
 }
 
+// SwitchClient will switch the current tmux client to a different session.
+//
+// session.ID is preferred, but will use session.Name if session.ID is
+// empty. If neither are specified, it will throw an error.
 func SwitchClient(ctx context.Context, session Session) error {
+	target := session.ID
+	if len(target) == 0 {
+		target = session.Name
+	}
+	if len(target) == 0 {
+		return fmt.Errorf("invalid session")
+	}
+
 	cmd := exec.CommandContext(
 		ctx,
 		"tmux",
 		"switch-client",
-		"-t", session.ID,
+		"-t", target,
 	)
 
 	if err := cmd.Run(); err != nil {
@@ -165,6 +177,10 @@ func NewSession(ctx context.Context, opts *NewOptions) error {
 	}
 	output = bytes.TrimSpace(output)
 
-	// The new session has been created successfully, now switch to it.
-	return SwitchClient(ctx, Session{ID: string(output)})
+	session := Session{
+		ID:   string(output),
+		Name: opts.Name,
+	}
+
+	return SwitchClient(ctx, session)
 }
