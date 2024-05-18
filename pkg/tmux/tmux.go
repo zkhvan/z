@@ -67,6 +67,21 @@ func SwitchClient(ctx context.Context, session Session) error {
 	return nil
 }
 
+func SwitchClientLast(ctx context.Context) error {
+	cmd := exec.CommandContext(
+		ctx,
+		"tmux",
+		"switch-client",
+		"-l",
+	)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("error running %q: %w", cmd.String(), err)
+	}
+
+	return nil
+}
+
 type ListOptions struct {
 	// ExcludeCurrentSession will filter out the currently active session. If
 	// no session is attached, it will filter out the last active session.
@@ -183,4 +198,19 @@ func NewSession(ctx context.Context, opts *NewOptions) error {
 	}
 
 	return SwitchClient(ctx, session)
+}
+
+func KillSession(ctx context.Context, session Session) error {
+	cmd := exec.CommandContext(
+		ctx,
+		"tmux",
+		"kill-session",
+		"-t", session.ID,
+	)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("error running %q: %w", cmd.String(), err)
+	}
+
+	return nil
 }
