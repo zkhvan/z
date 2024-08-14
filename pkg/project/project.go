@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/samber/lo"
+
 	"github.com/zkhvan/z/pkg/fd"
 )
 
@@ -37,6 +39,25 @@ func ListProjects(ctx context.Context) ([]Project, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	ossPath := filepath.Join(path, "oss")
+	ossResults, err := fd.Run(
+		ctx,
+		".git",
+		&fd.FdOptions{
+			Glob:        &glob,
+			Hidden:      &hidden,
+			MaxDepth:    &maxDepth,
+			NoIgnoreVCS: &noIgnoreVCS,
+			Path:        &ossPath,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	results = append(results, ossResults...)
+	results = lo.Uniq(results)
 
 	projects := make([]Project, 0, len(results))
 	for _, result := range results {
