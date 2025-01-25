@@ -56,7 +56,24 @@ func ListProjects(ctx context.Context) ([]Project, error) {
 		return nil, err
 	}
 
+	workPath := filepath.Join(path, "work")
+	workResults, err := fd.Run(
+		ctx,
+		".git",
+		&fd.FdOptions{
+			Glob:        &glob,
+			Hidden:      &hidden,
+			MaxDepth:    &maxDepth,
+			NoIgnoreVCS: &noIgnoreVCS,
+			Path:        &workPath,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	results = append(results, ossResults...)
+	results = append(results, workResults...)
 	results = lo.Uniq(results)
 
 	projects := make([]Project, 0, len(results))
