@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	configCmd "github.com/zkhvan/z/pkg/cmd/config"
 	"github.com/zkhvan/z/pkg/cmd/plugin"
 	projectCmd "github.com/zkhvan/z/pkg/cmd/project"
 	tmuxCmd "github.com/zkhvan/z/pkg/cmd/tmux"
@@ -45,6 +46,7 @@ func NewCmdRoot(f *cmdutil.Factory, version, date string) (*cobra.Command, error
 	cmd.AddCommand(versionCmd.NewCmdVersion(f, version, date))
 	cmd.AddCommand(tmuxCmd.NewCmdTmux(f))
 	cmd.AddCommand(projectCmd.NewCmdProject(f))
+	cmd.AddCommand(configCmd.NewCmdConfig(f))
 
 	if f.PluginHandler == nil {
 		return cmd, nil
