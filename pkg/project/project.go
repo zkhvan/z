@@ -16,7 +16,7 @@ type Config struct {
 }
 
 func (c Config) setDefaults() Config {
-	c.MaxDepth = cmp.Or(c.MaxDepth, 3)
+	c.MaxDepth = cmp.Or(c.MaxDepth, 4)
 
 	if len(c.SearchDirectories) == 0 {
 		c.SearchDirectories = append(c.SearchDirectories, "~/Projects")
