@@ -123,14 +123,13 @@ type PluginListOptions struct {
 	iolib.IOStreams
 }
 
-func (o *PluginListOptions) Complete(cmd *cobra.Command) error {
+func (o *PluginListOptions) Complete(cmd *cobra.Command) {
 	o.Verifier = &CommandOverrideVerifier{
 		root:        cmd.Root(),
 		seenPlugins: make(map[string]string),
 	}
 
 	o.PluginPaths = filepath.SplitList(os.Getenv("PATH"))
-	return nil
 }
 
 func (o *PluginListOptions) Run() error {

@@ -21,7 +21,12 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 		Short: "List projects",
 		Long:  `List the projects by searching for '.git' directories.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			results, err := project.ListProjects(cmd.Context())
+			var cfg project.Config
+			if err := f.Config.Unmarshal("projects", &cfg); err != nil {
+				return err
+			}
+
+			results, err := project.ListProjects(cmd.Context(), cfg)
 			if err != nil {
 				return err
 			}
