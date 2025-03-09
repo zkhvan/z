@@ -2,8 +2,6 @@ package use
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -44,7 +42,7 @@ func NewCmdUse(f *cmdutil.Factory) *cobra.Command {
 				cmd.Context(),
 				&tmux.NewOptions{
 					Name: project.Path,
-					Dir:  filepath.Join(os.ExpandEnv("$HOME/Projects"), project.Path),
+					Dir:  project.AbsolutePath,
 				},
 			); err != nil {
 				return err

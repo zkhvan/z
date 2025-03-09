@@ -2,8 +2,6 @@ package list
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -35,7 +33,7 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 				path := result.Path
 
 				if fullPath {
-					path = filepath.Join(os.ExpandEnv("$HOME/Projects"), path)
+					path = result.AbsolutePath
 				}
 
 				fmt.Fprintln(f.IOStreams.Out, path)

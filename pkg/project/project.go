@@ -26,8 +26,9 @@ func (c Config) setDefaults() Config {
 }
 
 type Project struct {
-	Name string
-	Path string
+	Name         string
+	AbsolutePath string
+	Path         string
 }
 
 func ListProjects(ctx context.Context, cfg Config) ([]Project, error) {
@@ -66,10 +67,16 @@ func ListProjects(ctx context.Context, cfg Config) ([]Project, error) {
 				return nil, fmt.Errorf("error convert absolute path to relative path %q: %w", r, err)
 			}
 
+			abs := filepath.Dir(filepath.Clean(r))
 			rel = filepath.Dir(rel)
+
 			name := filepath.Base(rel)
 
-			projects = append(projects, Project{Name: name, Path: rel})
+			projects = append(projects, Project{
+				Name:         name,
+				AbsolutePath: abs,
+				Path:         rel,
+			})
 		}
 	}
 
