@@ -1,6 +1,6 @@
 module github.com/zkhvan/z
 
-go 1.21.0
+go 1.24.0
 
 require (
 	github.com/knadh/koanf/parsers/yaml v0.1.0
