@@ -18,7 +18,12 @@ func NewCmdUse(f *cmdutil.Factory) *cobra.Command {
 		Use:   "use",
 		Short: "Use a tmux project session",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			projects, err := project.ListProjects(cmd.Context())
+			var cfg project.Config
+			if err := f.Config.Unmarshal("projects", &cfg); err != nil {
+				return err
+			}
+
+			projects, err := project.ListProjects(cmd.Context(), cfg)
 			if err != nil {
 				return err
 			}
