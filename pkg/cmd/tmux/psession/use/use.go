@@ -1,6 +1,7 @@
 package use
 
 import (
+	"context"
 	"errors"
 
 	"github.com/spf13/cobra"
@@ -11,48 +12,60 @@ import (
 	"github.com/zkhvan/z/pkg/tmux"
 )
 
+type Options struct {
+	config cmdutil.Config
+}
+
 func NewCmdUse(f *cmdutil.Factory) *cobra.Command {
+	opts := &Options{
+		config: f.Config,
+	}
+
 	cmd := &cobra.Command{
 		Use:   "use",
 		Short: "Use a tmux project session",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var cfg project.Config
-			if err := f.Config.Unmarshal("projects", &cfg); err != nil {
-				return err
-			}
-
-			projects, err := project.ListProjects(cmd.Context(), cfg)
-			if err != nil {
-				return err
-			}
-
-			project, err := fzf.One(
-				cmd.Context(),
-				projects,
-				projectByPath,
-			)
-			if errors.Is(err, fzf.ErrCancelled) {
-				return nil
-			}
-			if err != nil {
-				return err
-			}
-
-			if err := tmux.NewSession(
-				cmd.Context(),
-				&tmux.NewOptions{
-					Name: project.Path,
-					Dir:  project.AbsolutePath,
-				},
-			); err != nil {
-				return err
-			}
-
-			return nil
+			return opts.Run(cmd.Context())
 		},
 	}
 
 	return cmd
+}
+
+func (o *Options) Run(ctx context.Context) error {
+	var cfg project.Config
+	if err := o.config.Unmarshal("projects", &cfg); err != nil {
+		return err
+	}
+
+	projects, err := project.ListProjects(ctx, cfg)
+	if err != nil {
+		return err
+	}
+
+	project, err := fzf.One(
+		ctx,
+		projects,
+		projectByPath,
+	)
+	if errors.Is(err, fzf.ErrCancelled) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := tmux.NewSession(
+		ctx,
+		&tmux.NewOptions{
+			Name: project.Path,
+			Dir:  project.AbsolutePath,
+		},
+	); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func projectByPath(p project.Project, _ int) string {

@@ -1,6 +1,7 @@
 package use
 
 import (
+	"context"
 	"errors"
 
 	"github.com/spf13/cobra"
@@ -10,31 +11,39 @@ import (
 	"github.com/zkhvan/z/pkg/tmux"
 )
 
+type Options struct{}
+
 func NewCmdUse(f *cmdutil.Factory) *cobra.Command {
+	opts := &Options{}
+
 	cmd := &cobra.Command{
 		Use:   "use",
 		Short: "Use a tmux session",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sessions, err := tmux.ListSessions(cmd.Context(), &tmux.ListOptions{
-				ExcludeCurrentSession: true,
-			})
-			if err != nil {
-				return err
-			}
-
-			session, err := fzf.One(cmd.Context(), sessions, sessionByName)
-			if errors.Is(err, fzf.ErrCancelled) {
-				return nil
-			}
-			if err != nil {
-				return err
-			}
-
-			return tmux.SwitchClient(cmd.Context(), session)
+			return opts.Run(cmd.Context())
 		},
 	}
 
 	return cmd
+}
+
+func (opts *Options) Run(ctx context.Context) error {
+	sessions, err := tmux.ListSessions(ctx, &tmux.ListOptions{
+		ExcludeCurrentSession: true,
+	})
+	if err != nil {
+		return err
+	}
+
+	session, err := fzf.One(ctx, sessions, sessionByName)
+	if errors.Is(err, fzf.ErrCancelled) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	return tmux.SwitchClient(ctx, session)
 }
 
 func sessionByName(s tmux.Session, _ int) string {

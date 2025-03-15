@@ -8,18 +8,42 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zkhvan/z/pkg/cmdutil"
+	"github.com/zkhvan/z/pkg/iolib"
 )
 
+type Options struct {
+	io          *iolib.IOStreams
+	VersionInfo string
+}
+
 func NewCmdVersion(f *cmdutil.Factory, version, date string) *cobra.Command {
+	opts := &Options{
+		io:          f.IOStreams,
+		VersionInfo: version,
+	}
+
 	cmd := &cobra.Command{
 		Use:    "version",
 		Hidden: true,
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprint(f.IOStreams.Out, cmd.Root().Annotations["versionInfo"])
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := opts.Complete(cmd, args); err != nil {
+				return err
+			}
+			return opts.Run()
 		},
 	}
 
 	return cmd
+}
+
+func (opts *Options) Complete(cmd *cobra.Command, args []string) error {
+	opts.VersionInfo = cmd.Root().Annotations["versionInfo"]
+	return nil
+}
+
+func (o *Options) Run() error {
+	fmt.Fprint(o.io.Out, o.VersionInfo)
+	return nil
 }
 
 func Format(version, buildDate string) string {

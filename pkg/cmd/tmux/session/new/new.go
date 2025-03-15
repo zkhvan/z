@@ -1,40 +1,49 @@
 package new
 
 import (
+	"context"
+
 	"github.com/spf13/cobra"
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/tmux"
 )
 
+type Options struct {
+	Name string
+	Dir  string
+}
+
 func NewCmdNew(f *cmdutil.Factory) *cobra.Command {
-	var (
-		name = ""
-		dir  = ""
-	)
+	opts := &Options{}
 
 	cmd := &cobra.Command{
 		Use:   "new",
 		Short: "New tmux session",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := tmux.NewSession(
-				cmd.Context(),
-				&tmux.NewOptions{
-					Name: name,
-					Dir:  dir,
-				},
-			); err != nil {
-				return err
-			}
-
-			return nil
+			return opts.Run(cmd.Context())
 		},
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "The session name")
-	cmd.Flags().StringVar(&dir, "dir", "", "The start directory")
+	cmd.Flags().StringVar(&opts.Name, "name", "", "The session name")
+	cmd.Flags().StringVar(&opts.Dir, "dir", "", "The start directory")
 
-	_ = cmd.MarkFlagRequired("name")
-	_ = cmd.MarkFlagRequired("dir")
+	if err := cmdutil.MarkFlagsRequired(cmd, "name", "dir"); err != nil {
+		panic(err)
+	}
 
 	return cmd
+}
+
+func (opts *Options) Run(ctx context.Context) error {
+	if err := tmux.NewSession(
+		ctx,
+		&tmux.NewOptions{
+			Name: opts.Name,
+			Dir:  opts.Dir,
+		},
+	); err != nil {
+		return err
+	}
+
+	return nil
 }
