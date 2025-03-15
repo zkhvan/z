@@ -25,15 +25,38 @@ func (c Config) setDefaults() Config {
 	return c
 }
 
+type ProjectType string
+
+const (
+	Local  ProjectType = "local"
+)
+
 type Project struct {
+	Type         ProjectType
 	Name         string
 	AbsolutePath string
 	Path         string
 }
 
+func NewProject(name string) Project {
+	return Project{
+		Type: Local,
+		Name: name,
+	}
+}
+
 func ListProjects(ctx context.Context, cfg Config) ([]Project, error) {
 	cfg = cfg.setDefaults()
 
+	projects, err := listLocalProjects(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return projects, nil
+}
+
+func listLocalProjects(ctx context.Context, cfg Config) ([]Project, error) {
 	var (
 		glob        = true
 		hidden      = true
@@ -72,11 +95,11 @@ func ListProjects(ctx context.Context, cfg Config) ([]Project, error) {
 
 			name := filepath.Base(rel)
 
-			projects = append(projects, Project{
-				Name:         name,
-				AbsolutePath: abs,
-				Path:         rel,
-			})
+			project := NewProject(name)
+			project.AbsolutePath = abs
+			project.Path = rel
+
+			projects = append(projects, project)
 		}
 	}
 
