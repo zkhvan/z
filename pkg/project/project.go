@@ -11,15 +11,15 @@ import (
 )
 
 type Config struct {
-	MaxDepth          int      `json:"max_depth"`
-	SearchDirectories []string `json:"search_directories"`
+	MaxDepth         int      `json:"max_depth"`
+	LocalDirectories []string `json:"local_directories"`
 }
 
 func (c Config) setDefaults() Config {
 	c.MaxDepth = cmp.Or(c.MaxDepth, 4)
 
-	if len(c.SearchDirectories) == 0 {
-		c.SearchDirectories = append(c.SearchDirectories, "~/Projects")
+	if len(c.LocalDirectories) == 0 {
+		c.LocalDirectories = append(c.LocalDirectories, "~/Projects")
 	}
 
 	return c
@@ -39,7 +39,7 @@ func ListProjects(ctx context.Context, cfg Config) ([]Project, error) {
 		hidden      = true
 		maxDepth    = cfg.MaxDepth
 		noIgnoreVCS = true
-		paths       = cfg.SearchDirectories
+		paths       = cfg.LocalDirectories
 	)
 
 	var projects []Project
