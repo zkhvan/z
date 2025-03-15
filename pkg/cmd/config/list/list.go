@@ -10,26 +10,29 @@ import (
 )
 
 type Options struct {
-	IO     *iolib.IOStreams
-	Config cmdutil.Config
+	io     *iolib.IOStreams
+	config cmdutil.Config
 }
 
 func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 	opts := &Options{
-		IO:     f.IOStreams,
-		Config: f.Config,
+		io:     f.IOStreams,
+		config: f.Config,
 	}
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List the current config values",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			list := f.Config.List()
-			fmt.Fprintln(opts.IO.Out, list)
-
-			return nil
+			return opts.Run()
 		},
 	}
 
 	return cmd
+}
+
+func (o *Options) Run() error {
+	list := o.config.List()
+	fmt.Fprintln(o.io.Out, list)
+	return nil
 }

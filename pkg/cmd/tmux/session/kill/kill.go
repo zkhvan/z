@@ -1,6 +1,7 @@
 package kill
 
 import (
+	"context"
 	"sort"
 
 	"github.com/MakeNowJust/heredoc/v2"
@@ -10,7 +11,11 @@ import (
 	"github.com/zkhvan/z/pkg/tmux"
 )
 
+type Options struct{}
+
 func NewCmdKill(f *cmdutil.Factory) *cobra.Command {
+	opts := &Options{}
+
 	cmd := &cobra.Command{
 		Use:   "kill",
 		Short: "Kill the current tmux session, automatically switch to another session if possible.",
@@ -24,46 +29,50 @@ func NewCmdKill(f *cmdutil.Factory) *cobra.Command {
 			3. If no other sessions are available, kill the current session.
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			currentSessionID, err := tmux.CurrentSessionID(cmd.Context())
-			if err != nil {
-				return err
-			}
-			// If we successfully switch to another session, kill the current one
-			defer func() {
-				if err == nil {
-					err = tmux.KillSession(cmd.Context(), tmux.Session{ID: currentSessionID})
-				}
-			}()
-
-			// Try to switch to last active session
-			if err := tmux.SwitchClientLast(cmd.Context()); err == nil {
-				return nil
-			}
-
-			// Get all sessions except current one
-			sessions, err := tmux.ListSessions(cmd.Context(), &tmux.ListOptions{
-				ExcludeCurrentSession: true,
-			})
-			if err != nil {
-				return err
-			}
-
-			// If no other sessions available, just kill the current one
-			if len(sessions) == 0 {
-				return nil
-			}
-
-			// Sort sessions by name and switch to first one
-			sort.Slice(sessions, func(i, j int) bool {
-				return sessions[i].Name < sessions[j].Name
-			})
-			if err := tmux.SwitchClient(cmd.Context(), sessions[0]); err != nil {
-				return err
-			}
-
-			return nil
+			return opts.Run(cmd.Context())
 		},
 	}
 
 	return cmd
+}
+
+func (o *Options) Run(ctx context.Context) error {
+	currentSessionID, err := tmux.CurrentSessionID(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			// If we successfully switch to another session, kill the current one
+			err = tmux.KillSession(ctx, tmux.Session{ID: currentSessionID})
+		}
+	}()
+
+	// Try to switch to last active session
+	if err := tmux.SwitchClientLast(ctx); err == nil {
+		return nil
+	}
+
+	// Get all sessions except current one
+	sessions, err := tmux.ListSessions(ctx, &tmux.ListOptions{
+		ExcludeCurrentSession: true,
+	})
+	if err != nil {
+		return err
+	}
+
+	// If no other sessions available, just kill the current one
+	if len(sessions) == 0 {
+		return nil
+	}
+
+	// Sort sessions by name and switch to first one
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].Name < sessions[j].Name
+	})
+	if err := tmux.SwitchClient(ctx, sessions[0]); err != nil {
+		return err
+	}
+
+	return nil
 }

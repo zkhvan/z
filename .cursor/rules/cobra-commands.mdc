@@ -1,0 +1,95 @@
+---
+description: When working with cobra commands, this helps standardise the structure.
+globs: pkg/cmd/**/*.go
+alwaysApply: false
+---
+
+## Command structure pattern
+
+Each commands follows this basic structure:
+
+```go
+// 1. Options struct to hold command-specific configuration
+type Options struct {
+    // Command-specific fields
+}
+
+// 2. NewCmd function that creates and returns a cobra.Command
+func NewCmdXXX(f *cmdutil.Factory) *cobra.Command {
+    // Initialize options
+    opts := &Options{}
+    
+    // Create and configure the command
+    cmd := &cobra.Command{
+        Use:   "xxx",
+        Short: "Short description",
+        RunE: func(cmd *cobra.Command, args []string) error {
+            // optional (if flags/args need to be validated/completed):
+            // if err := opts.Complete(cmd, args); err != nil { ... } 
+            return opts.Run(cmd.Context())
+        },
+    }
+    
+    // Add flags if needed
+    // cmd.Flags().StringVar(...)
+    
+    return cmd
+}
+
+// 3. Run method on Options to execute the command logic
+func (opts *Options) Run(ctx context.Context) error {
+    // Command implementation
+}
+```
+
+## Organization
+
+- Commands are organized in packages by functionality
+- Each command package contains subcommands in their own subdirectories
+- Example hierarchy from the codebase
+
+    pkg/cmd/
+    ├── tmux/
+    │   ├── session/
+    │   │   ├── list/
+    │   │   ├── kill/
+    │   │   ├── new/
+    │   │   └── use/
+    │   └── tmux.go
+
+## Factory
+
+- Commands receive a cmdutil.Factory interface that provides common dependencies
+
+```go
+func NewCmdList(f *cmdutil.Factory) *cobra.Command {
+    opts := &Options{
+        io: f.IOStreams,  // Get IO streams from factory
+    }
+    // ...
+}
+```
+
+## Registration
+
+- Parent commands register their subcommands using `AddCommand`.
+
+```go
+func NewCmdSession(f *cmdutil.Factory) *cobra.Command {
+    cmd := &cobra.Command{
+        Use:   "session",
+        Short: "Manage tmux sessions",
+    }
+
+    cmd.AddCommand(killCmd.NewCmdKill(f))
+
+    return cmd
+}
+```
+
+## Other
+
+- Commands should use `RunE` instead of `Run`
+- Errors are propagated up the command chain
+- Commands receive and pass through `context.Context` from Cobra's
+  `cmd.Context()`
