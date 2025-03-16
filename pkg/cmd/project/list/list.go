@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/zkhvan/z/pkg/cmdutil"
@@ -27,7 +28,12 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List projects",
-		Long:  `List the projects by searching for '.git' directories.`,
+		Long: heredoc.Doc(`
+			List the projects defined in the config file.
+
+			Local projects are found by searching for '.git' directories.
+			Remote projects are found by searching for repositories on GitHub.
+		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return opts.Run(cmd.Context())
 		},
@@ -44,13 +50,13 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	results, err := project.ListProjects(ctx, cfg, nil)
+	results, err := project.ListProjects(ctx, cfg, &project.ListOptions{Remote: true})
 	if err != nil {
 		return err
 	}
 
 	for _, result := range results {
-		path := result.Path
+		path := result.ID
 
 		if opts.FullPath {
 			path = result.AbsolutePath

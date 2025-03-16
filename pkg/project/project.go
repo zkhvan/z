@@ -5,7 +5,10 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
+
+	"github.com/samber/lo"
 
 	"github.com/zkhvan/z/pkg/fd"
 	"github.com/zkhvan/z/pkg/gh"
@@ -13,8 +16,19 @@ import (
 )
 
 type Config struct {
-	MaxDepth       int      `json:"max_depth"`
-	Root           string   `json:"root"`
+	MaxDepth int    `json:"max_depth"`
+	Root     string `json:"root"`
+
+	// RemotePatterns is a list of patterns to match remote repositories.
+	//
+	// The pattern format is as follows:
+	//
+	//	owner/repo -> ./alternate-path
+	//
+	// The repo can be "*" to find all the repos under that owner. The
+	// alternate path is relative to the root directory. If the alternate path
+	// ends with a "/", the repo name (without the owner) will be used
+	// instead.
 	RemotePatterns []string `json:"remote_patterns"`
 }
 
@@ -37,17 +51,27 @@ const (
 
 type Project struct {
 	Type         ProjectType
-	Name         string
-	Identifier   string
+	ID           string
 	AbsolutePath string
-	Path         string
 }
 
-func NewProject(name string, identifier string) Project {
+func (p Project) Compare(other Project) int {
+	return strings.Compare(p.AbsolutePath, other.AbsolutePath)
+}
+
+func newLocalProject(id, abs string) Project {
 	return Project{
-		Type:       Local,
-		Name:       name,
-		Identifier: identifier,
+		Type:         Local,
+		ID:           id,
+		AbsolutePath: abs,
+	}
+}
+
+func newRemoteProject(id, abs string) Project {
+	return Project{
+		Type:         Remote,
+		ID:           id,
+		AbsolutePath: abs,
 	}
 }
 
@@ -55,6 +79,10 @@ type ListOptions struct {
 	Remote bool
 }
 
+// ListProjects will search for repositories using the given config and options.
+//
+// By default, it will only search for local repositories. To search for remote
+// repositories, set opts.Remote to true.
 func ListProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project, error) {
 	cfg = cfg.setDefaults()
 
@@ -75,6 +103,14 @@ func ListProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project
 
 		projects = append(projects, remoteProjects...)
 	}
+
+	projects = lo.UniqBy(projects, func(p Project) string {
+		return p.AbsolutePath
+	})
+
+	slices.SortFunc(projects, func(a, b Project) int {
+		return a.Compare(b)
+	})
 
 	return projects, nil
 }
@@ -105,20 +141,14 @@ func listLocalProjects(ctx context.Context, cfg Config) ([]Project, error) {
 	}
 
 	for _, r := range rr {
-		rel, err := filepath.Rel(root, r)
+		abs := filepath.Dir(filepath.Clean(r))
+
+		id, err := filepath.Rel(root, abs)
 		if err != nil {
 			return nil, fmt.Errorf("error convert absolute path to relative path %q: %w", r, err)
 		}
 
-		abs := filepath.Dir(filepath.Clean(r))
-		rel = filepath.Dir(rel)
-
-		name := filepath.Base(rel)
-
-		project := NewProject(name, rel)
-		project.AbsolutePath = abs
-		project.Path = rel
-
+		project := newLocalProject(id, abs)
 		projects = append(projects, project)
 	}
 
@@ -126,12 +156,15 @@ func listLocalProjects(ctx context.Context, cfg Config) ([]Project, error) {
 }
 
 func listRemoteProjects(ctx context.Context, cfg Config) ([]Project, error) {
-	var projects []Project
+	var (
+		projects = make([]Project, 0)
+		root     = oslib.Expand(cfg.Root)
+	)
 
-	for _, p := range cfg.RemotePatterns {
-		pattern, err := parseRemotePattern(p)
+	for _, rp := range cfg.RemotePatterns {
+		pattern, err := parseRemotePattern(rp)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error parsing remote pattern %q: %w", rp, err)
 		}
 
 		var repos []*gh.Repo
@@ -145,9 +178,24 @@ func listRemoteProjects(ctx context.Context, cfg Config) ([]Project, error) {
 		}
 
 		for _, r := range repos {
-			project := NewProject(r.Name, r.String())
-			project.Type = Remote
+			abs := filepath.Join(root, r.String())
+			if pattern.AlternatePath != nil {
+				alt := *pattern.AlternatePath
+				dir := r.String()
 
+				if strings.HasSuffix(alt, "/") {
+					dir = r.Name
+				}
+
+				abs = filepath.Join(root, alt, dir)
+			}
+
+			id, err := filepath.Rel(root, abs)
+			if err != nil {
+				return nil, fmt.Errorf("error convert absolute path to relative path %q: %w", abs, err)
+			}
+
+			project := newRemoteProject(id, abs)
 			projects = append(projects, project)
 		}
 	}
@@ -156,26 +204,42 @@ func listRemoteProjects(ctx context.Context, cfg Config) ([]Project, error) {
 }
 
 type remotePattern struct {
-	Owner string
-	Repo  *string
+	original string
+
+	Owner         string
+	Repo          *string
+	AlternatePath *string
 }
 
+// parseRemotePattern will parse the pattern with the following format:
+//
+//	owner/repo -> ./alternate-path
+//
+// If the pattern is in the format above, the AlternatePath will be set.
 func parseRemotePattern(pattern string) (remotePattern, error) {
-	parts := strings.Split(pattern, "/")
+	out := remotePattern{
+		original: pattern,
+	}
+
+	// Check and parse if the pattern contains an alternate path.
+	parts := strings.Split(pattern, "->")
+	if len(parts) == 2 {
+		alternatePath := strings.TrimSpace(parts[1])
+		out.AlternatePath = &alternatePath
+	}
+
+	// Parse the owner/repo
+	parts = strings.Split(strings.TrimSpace(parts[0]), "/")
 	if len(parts) != 2 {
-		return remotePattern{}, fmt.Errorf("invalid pattern: %q", pattern)
+		return out, fmt.Errorf("invalid pattern: %q", pattern)
 	}
 
-	owner := parts[0]
-	repo := parts[1]
+	out.Owner = parts[0]
+	out.Repo = &parts[1]
 
-	result := remotePattern{
-		Owner: owner,
+	if *out.Repo == "*" {
+		out.Repo = nil
 	}
 
-	if repo != "*" {
-		result.Repo = &repo
-	}
-
-	return result, nil
+	return out, nil
 }
