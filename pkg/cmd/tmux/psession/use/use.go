@@ -38,7 +38,9 @@ func (o *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	projects, err := project.ListProjects(ctx, cfg, nil)
+	projects, err := project.ListProjects(ctx, cfg, &project.ListOptions{
+		NoCache: true,
+	})
 	if err != nil {
 		return err
 	}

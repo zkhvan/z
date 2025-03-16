@@ -3,7 +3,10 @@ package project
 import (
 	"cmp"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -13,6 +16,10 @@ import (
 	"github.com/zkhvan/z/pkg/fd"
 	"github.com/zkhvan/z/pkg/gh"
 	"github.com/zkhvan/z/pkg/oslib"
+)
+
+const (
+	CACHE_FILE = "projects.json"
 )
 
 type Config struct {
@@ -50,9 +57,9 @@ const (
 )
 
 type Project struct {
-	Type         ProjectType
-	ID           string
-	AbsolutePath string
+	Type         ProjectType `json:"type"`
+	ID           string      `json:"id"`
+	AbsolutePath string      `json:"absolute_path"`
 }
 
 func (p Project) Compare(other Project) int {
@@ -76,7 +83,9 @@ func newRemoteProject(id, abs string) Project {
 }
 
 type ListOptions struct {
-	Remote bool
+	Remote   bool
+	NoCache  bool
+	CacheDir string
 }
 
 // ListProjects will search for repositories using the given config and options.
@@ -90,6 +99,31 @@ func ListProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project
 		opts = &ListOptions{}
 	}
 
+	if opts.CacheDir == "" {
+		cacheDir := oslib.Expand("~/.cache")
+		if os.Getenv("XDG_CACHE_DIR") != "" {
+			cacheDir = os.Getenv("XDG_CACHE_DIR")
+		}
+
+		opts.CacheDir = filepath.Join(cacheDir, "z")
+	}
+
+	if !opts.NoCache {
+		projects, err := loadProjectsFromCache(opts.CacheDir)
+		if errors.Is(err, os.ErrNotExist) {
+			return listProjects(ctx, cfg, opts)
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		return projects, nil
+	}
+
+	return listProjects(ctx, cfg, opts)
+}
+
+func listProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project, error) {
 	projects, err := listLocalProjects(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -111,6 +145,10 @@ func ListProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project
 	slices.SortFunc(projects, func(a, b Project) int {
 		return a.Compare(b)
 	})
+
+	if err := saveProjectsToCache(opts.CacheDir, projects); err != nil {
+		return projects, err
+	}
 
 	return projects, nil
 }
@@ -242,4 +280,47 @@ func parseRemotePattern(pattern string) (remotePattern, error) {
 	}
 
 	return out, nil
+}
+
+func loadProjectsFromCache(cacheDir string) ([]Project, error) {
+	root, err := os.OpenRoot(cacheDir)
+	if err != nil {
+		return nil, fmt.Errorf("error open cache dir %q: %w", cacheDir, err)
+	}
+
+	file, err := root.OpenFile(CACHE_FILE, os.O_RDONLY, 0)
+	if err != nil {
+		return nil, fmt.Errorf("error open projects file %q: %w", CACHE_FILE, err)
+	}
+	defer file.Close()
+
+	var projects []Project
+	if err := json.NewDecoder(file).Decode(&projects); err != nil {
+		return nil, fmt.Errorf("error decoding projects file %q: %w", CACHE_FILE, err)
+	}
+
+	return projects, nil
+}
+
+func saveProjectsToCache(cacheDir string, projects []Project) error {
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("error create cache dir %q: %w", cacheDir, err)
+	}
+
+	root, err := os.OpenRoot(cacheDir)
+	if err != nil {
+		return fmt.Errorf("error open cache dir %q: %w", cacheDir, err)
+	}
+
+	file, err := root.OpenFile(CACHE_FILE, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("error open projects file %q: %w", CACHE_FILE, err)
+	}
+	defer file.Close()
+
+	if err := json.NewEncoder(file).Encode(projects); err != nil {
+		return fmt.Errorf("error encoding projects file %q: %w", CACHE_FILE, err)
+	}
+
+	return nil
 }
