@@ -38,7 +38,7 @@ func (o *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	projects, err := project.ListProjects(ctx, cfg)
+	projects, err := project.ListProjects(ctx, cfg, nil)
 	if err != nil {
 		return err
 	}

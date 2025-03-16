@@ -44,24 +44,19 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	// Only search for local projects
-	cfg.RemotePatterns = nil
-
-	results, err := project.ListProjects(ctx, cfg)
+	results, err := project.ListProjects(ctx, cfg, nil)
 	if err != nil {
 		return err
 	}
 
 	for _, result := range results {
-		if result.Type == project.Local {
-			path := result.Path
+		path := result.Path
 
-			if opts.FullPath {
-				path = result.AbsolutePath
-			}
-
-			fmt.Fprintln(opts.io.Out, path)
+		if opts.FullPath {
+			path = result.AbsolutePath
 		}
+
+		fmt.Fprintln(opts.io.Out, path)
 	}
 
 	return nil

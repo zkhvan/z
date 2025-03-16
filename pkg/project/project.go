@@ -51,20 +51,30 @@ func NewProject(name string, identifier string) Project {
 	}
 }
 
-func ListProjects(ctx context.Context, cfg Config) ([]Project, error) {
+type ListOptions struct {
+	Remote bool
+}
+
+func ListProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project, error) {
 	cfg = cfg.setDefaults()
+
+	if opts == nil {
+		opts = &ListOptions{}
+	}
 
 	projects, err := listLocalProjects(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	remoteProjects, err := listRemoteProjects(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
+	if opts.Remote {
+		remoteProjects, err := listRemoteProjects(ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
 
-	projects = append(projects, remoteProjects...)
+		projects = append(projects, remoteProjects...)
+	}
 
 	return projects, nil
 }
