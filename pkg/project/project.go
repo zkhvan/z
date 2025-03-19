@@ -117,6 +117,12 @@ func ListProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project
 			return nil, err
 		}
 
+		if !opts.Remote {
+			projects = lo.Filter(projects, func(p Project, _ int) bool {
+				return p.Type != Remote
+			})
+		}
+
 		return projects, nil
 	}
 
