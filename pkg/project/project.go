@@ -86,9 +86,9 @@ func newRemoteProject(id, abs string) Project {
 }
 
 type ListOptions struct {
-	Remote   bool
-	NoCache  bool
-	CacheDir string
+	Remote       bool
+	RefreshCache bool
+	CacheDir     string
 }
 
 // ListProjects will search for repositories using the given config and options.
@@ -104,7 +104,7 @@ func ListProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project
 
 	opts.CacheDir = fcache.NormalizeCacheDir(opts.CacheDir)
 
-	if !opts.NoCache {
+	if !opts.RefreshCache {
 		projects, err := fcache.LoadMany[Project](opts.CacheDir, "projects")
 		if errors.Is(err, fcache.ErrNotFound) {
 			return listProjects(ctx, cfg, opts)

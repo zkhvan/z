@@ -16,9 +16,9 @@ type Options struct {
 	io     *iolib.IOStreams
 	config cmdutil.Config
 
-	FullPath bool
-	NoCache  bool
-	CacheDir string
+	FullPath     bool
+	RefreshCache bool
+	CacheDir     string
 }
 
 func NewCmdList(f *cmdutil.Factory) *cobra.Command {
@@ -42,7 +42,7 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&opts.FullPath, "full-path", false, "Output the full path")
-	cmd.Flags().BoolVar(&opts.NoCache, "no-cache", false, "Do not use the cache")
+	cmd.Flags().BoolVar(&opts.RefreshCache, "refresh-cache", false, "Refresh the cache")
 	cmd.Flags().StringVar(&opts.CacheDir, "cache-dir", "", heredoc.Doc(`
 		The directory to cache the list of projects. By default, the cache
 		will be saved in $XDG_CACHE_DIR/z or ~/.cache/z/
@@ -58,9 +58,9 @@ func (opts *Options) Run(ctx context.Context) error {
 	}
 
 	results, err := project.ListProjects(ctx, cfg, &project.ListOptions{
-		Remote:   true,
-		NoCache:  opts.NoCache,
-		CacheDir: opts.CacheDir,
+		Remote:       true,
+		RefreshCache: opts.RefreshCache,
+		CacheDir:     opts.CacheDir,
 	})
 	if err != nil {
 		return err
