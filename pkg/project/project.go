@@ -1,84 +1,81 @@
 package project
 
 import (
-	"cmp"
 	"context"
 	"fmt"
-	"path/filepath"
+	"slices"
+	"strings"
 
-	"github.com/zkhvan/z/pkg/fd"
-	"github.com/zkhvan/z/pkg/oslib"
+	"github.com/samber/lo"
+
+	"github.com/zkhvan/z/pkg/fcache"
 )
 
-type Config struct {
-	MaxDepth          int      `json:"max_depth"`
-	SearchDirectories []string `json:"search_directories"`
-}
+type ProjectType string
 
-func (c Config) setDefaults() Config {
-	c.MaxDepth = cmp.Or(c.MaxDepth, 4)
-
-	if len(c.SearchDirectories) == 0 {
-		c.SearchDirectories = append(c.SearchDirectories, "~/Projects")
-	}
-
-	return c
-}
+const (
+	Local  ProjectType = "local"
+	Remote ProjectType = "remote"
+)
 
 type Project struct {
-	Name         string
-	AbsolutePath string
-	Path         string
+	Type         ProjectType `json:"type"`
+	ID           string      `json:"id"`
+	AbsolutePath string      `json:"absolute_path"`
 }
 
-func ListProjects(ctx context.Context, cfg Config) ([]Project, error) {
+func (p Project) Compare(other Project) int {
+	return strings.Compare(p.AbsolutePath, other.AbsolutePath)
+}
+
+type ListOptions struct {
+	Local  bool
+	Remote bool
+
+	RefreshCache bool
+	CacheDir     string
+}
+
+// ListProjects will search for repositories using the given config and options.
+//
+// By default, it will only search for local repositories. To search for remote
+// repositories, set opts.Remote to true.
+func ListProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project, error) {
 	cfg = cfg.setDefaults()
 
-	var (
-		glob        = true
-		hidden      = true
-		maxDepth    = cfg.MaxDepth
-		noIgnoreVCS = true
-		paths       = cfg.SearchDirectories
-	)
-
-	var projects []Project
-	for _, path := range paths {
-		path = oslib.Expand(path)
-
-		rr, err := fd.Run(
-			ctx,
-			".git",
-			&fd.FdOptions{
-				Glob:        &glob,
-				Hidden:      &hidden,
-				MaxDepth:    &maxDepth,
-				NoIgnoreVCS: &noIgnoreVCS,
-				Path:        &path,
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, r := range rr {
-			rel, err := filepath.Rel(path, r)
-			if err != nil {
-				return nil, fmt.Errorf("error convert absolute path to relative path %q: %w", r, err)
-			}
-
-			abs := filepath.Dir(filepath.Clean(r))
-			rel = filepath.Dir(rel)
-
-			name := filepath.Base(rel)
-
-			projects = append(projects, Project{
-				Name:         name,
-				AbsolutePath: abs,
-				Path:         rel,
-			})
-		}
+	if opts == nil {
+		opts = &ListOptions{}
 	}
 
+	opts.CacheDir = fcache.NormalizeCacheDir(opts.CacheDir)
+
+	remoteProjects, err := listRemoteProjects(ctx, cfg, opts)
+	if err != nil {
+		return nil, fmt.Errorf("error listing remote projects: %w", err)
+	}
+
+	localProjects, err := listLocalProjects(ctx, cfg, opts)
+	if err != nil {
+		return nil, fmt.Errorf("error listing local projects: %w", err)
+	}
+
+	projects := combineProjects(remoteProjects, localProjects)
 	return projects, nil
+}
+
+func combineProjects(remote, local []Project) []Project {
+	projects := make([]Project, 0, len(remote)+len(local))
+
+	projects = append(projects, remote...)
+	projects = append(projects, local...)
+
+	projects = lo.UniqBy(projects, func(p Project) string {
+		return p.AbsolutePath
+	})
+
+	slices.SortFunc(projects, func(a, b Project) int {
+		return a.Compare(b)
+	})
+
+	return projects
 }

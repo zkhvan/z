@@ -38,7 +38,9 @@ func (o *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	projects, err := project.ListProjects(ctx, cfg)
+	projects, err := project.ListProjects(ctx, cfg, &project.ListOptions{
+		RefreshCache: true,
+	})
 	if err != nil {
 		return err
 	}
@@ -58,7 +60,7 @@ func (o *Options) Run(ctx context.Context) error {
 	if err := tmux.NewSession(
 		ctx,
 		&tmux.NewOptions{
-			Name: project.Path,
+			Name: project.ID,
 			Dir:  project.AbsolutePath,
 		},
 	); err != nil {
@@ -69,5 +71,5 @@ func (o *Options) Run(ctx context.Context) error {
 }
 
 func projectByPath(p project.Project, _ int) string {
-	return p.Path
+	return p.ID
 }
