@@ -28,7 +28,7 @@ func NewCmdRefresh(f *cmdutil.Factory) *cobra.Command {
 		Use:   "refresh",
 		Short: "Refresh the project cache",
 		Long: heredoc.Doc(`
-			Refresh the cache of projects defined in the config file.
+			Refresh the cache of remote projects defined in the config file.
 
 			This command will force a refresh of the remote projects cache.
 		`),
