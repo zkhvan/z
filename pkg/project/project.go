@@ -1,56 +1,15 @@
 package project
 
 import (
-	"cmp"
 	"context"
-	"errors"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/samber/lo"
 
 	"github.com/zkhvan/z/pkg/fcache"
-	"github.com/zkhvan/z/pkg/fd"
-	"github.com/zkhvan/z/pkg/gh"
-	"github.com/zkhvan/z/pkg/oslib"
 )
-
-type Config struct {
-	MaxDepth int    `json:"max_depth"`
-	Root     string `json:"root"`
-
-	// TTL is the time to live (in seconds) for the cache.
-	TTL int64 `json:"ttl"`
-
-	// RemotePatterns is a list of patterns to match remote repositories.
-	//
-	// The pattern format is as follows:
-	//
-	//	owner/repo -> ./alternate-path
-	//
-	// The repo can be "*" to find all the repos under that owner. The
-	// alternate path is relative to the root directory. If the alternate path
-	// ends with a "/", the repo name (without the owner) will be used
-	// instead.
-	RemotePatterns []string `json:"remote_patterns"`
-}
-
-func (c Config) setDefaults() Config {
-	c.MaxDepth = cmp.Or(c.MaxDepth, 4)
-
-	if c.Root == "" {
-		c.Root = "~/Projects"
-	}
-
-	if c.TTL == 0 {
-		c.TTL = 15 * 60 // 15 minutes
-	}
-
-	return c
-}
 
 type ProjectType string
 
@@ -69,24 +28,10 @@ func (p Project) Compare(other Project) int {
 	return strings.Compare(p.AbsolutePath, other.AbsolutePath)
 }
 
-func newLocalProject(id, abs string) Project {
-	return Project{
-		Type:         Local,
-		ID:           id,
-		AbsolutePath: abs,
-	}
-}
-
-func newRemoteProject(id, abs string) Project {
-	return Project{
-		Type:         Remote,
-		ID:           id,
-		AbsolutePath: abs,
-	}
-}
-
 type ListOptions struct {
-	Remote       bool
+	Local  bool
+	Remote bool
+
 	RefreshCache bool
 	CacheDir     string
 }
@@ -104,41 +49,25 @@ func ListProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project
 
 	opts.CacheDir = fcache.NormalizeCacheDir(opts.CacheDir)
 
-	if !opts.RefreshCache {
-		projects, err := fcache.LoadMany[Project](opts.CacheDir, "projects")
-		if errors.Is(err, fcache.ErrNotFound) {
-			return listProjects(ctx, cfg, opts)
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		if !opts.Remote {
-			projects = lo.Filter(projects, func(p Project, _ int) bool {
-				return p.Type != Remote
-			})
-		}
-
-		return projects, nil
+	remoteProjects, err := listRemoteProjects(ctx, cfg, opts)
+	if err != nil {
+		return nil, fmt.Errorf("error listing remote projects: %w", err)
 	}
 
-	return listProjects(ctx, cfg, opts)
+	localProjects, err := listLocalProjects(ctx, cfg, opts)
+	if err != nil {
+		return nil, fmt.Errorf("error listing local projects: %w", err)
+	}
+
+	projects := combineProjects(remoteProjects, localProjects)
+	return projects, nil
 }
 
-func listProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project, error) {
-	projects, err := listLocalProjects(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
+func combineProjects(remote, local []Project) []Project {
+	projects := make([]Project, 0, len(remote)+len(local))
 
-	if opts.Remote {
-		remoteProjects, err := listRemoteProjects(ctx, cfg)
-		if err != nil {
-			return nil, err
-		}
-
-		projects = append(projects, remoteProjects...)
-	}
+	projects = append(projects, remote...)
+	projects = append(projects, local...)
 
 	projects = lo.UniqBy(projects, func(p Project) string {
 		return p.AbsolutePath
@@ -148,139 +77,5 @@ func listProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project
 		return a.Compare(b)
 	})
 
-	ttl := time.Now().Add(time.Duration(cfg.TTL) * time.Second)
-	if err := fcache.SaveMany(opts.CacheDir, "projects", projects, ttl); err != nil {
-		return projects, err
-	}
-
-	return projects, nil
-}
-
-func listLocalProjects(ctx context.Context, cfg Config) ([]Project, error) {
-	var (
-		glob        = true
-		hidden      = true
-		maxDepth    = cfg.MaxDepth
-		noIgnoreVCS = true
-		root        = oslib.Expand(cfg.Root)
-	)
-
-	var projects []Project
-	rr, err := fd.Run(
-		ctx,
-		".git",
-		&fd.FdOptions{
-			Glob:        &glob,
-			Hidden:      &hidden,
-			MaxDepth:    &maxDepth,
-			NoIgnoreVCS: &noIgnoreVCS,
-			Path:        &root,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, r := range rr {
-		abs := filepath.Dir(filepath.Clean(r))
-
-		id, err := filepath.Rel(root, abs)
-		if err != nil {
-			return nil, fmt.Errorf("error convert absolute path to relative path %q: %w", r, err)
-		}
-
-		project := newLocalProject(id, abs)
-		projects = append(projects, project)
-	}
-
-	return projects, nil
-}
-
-func listRemoteProjects(ctx context.Context, cfg Config) ([]Project, error) {
-	var (
-		projects = make([]Project, 0)
-		root     = oslib.Expand(cfg.Root)
-	)
-
-	for _, rp := range cfg.RemotePatterns {
-		pattern, err := parseRemotePattern(rp)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing remote pattern %q: %w", rp, err)
-		}
-
-		var repos []*gh.Repo
-		if pattern.Repo == nil {
-			repos, err = gh.ListRepos(ctx, &gh.RepoListOptions{Owner: pattern.Owner})
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			repos = append(repos, &gh.Repo{Owner: pattern.Owner, Name: *pattern.Repo})
-		}
-
-		for _, r := range repos {
-			abs := filepath.Join(root, r.String())
-			if pattern.AlternatePath != nil {
-				alt := *pattern.AlternatePath
-				dir := r.String()
-
-				if strings.HasSuffix(alt, "/") {
-					dir = r.Name
-				}
-
-				abs = filepath.Join(root, alt, dir)
-			}
-
-			id, err := filepath.Rel(root, abs)
-			if err != nil {
-				return nil, fmt.Errorf("error convert absolute path to relative path %q: %w", abs, err)
-			}
-
-			project := newRemoteProject(id, abs)
-			projects = append(projects, project)
-		}
-	}
-
-	return projects, nil
-}
-
-type remotePattern struct {
-	original string
-
-	Owner         string
-	Repo          *string
-	AlternatePath *string
-}
-
-// parseRemotePattern will parse the pattern with the following format:
-//
-//	owner/repo -> ./alternate-path
-//
-// If the pattern is in the format above, the AlternatePath will be set.
-func parseRemotePattern(pattern string) (remotePattern, error) {
-	out := remotePattern{
-		original: pattern,
-	}
-
-	// Check and parse if the pattern contains an alternate path.
-	parts := strings.Split(pattern, "->")
-	if len(parts) == 2 {
-		alternatePath := strings.TrimSpace(parts[1])
-		out.AlternatePath = &alternatePath
-	}
-
-	// Parse the owner/repo
-	parts = strings.Split(strings.TrimSpace(parts[0]), "/")
-	if len(parts) != 2 {
-		return out, fmt.Errorf("invalid pattern: %q", pattern)
-	}
-
-	out.Owner = parts[0]
-	out.Repo = &parts[1]
-
-	if *out.Repo == "*" {
-		out.Repo = nil
-	}
-
-	return out, nil
+	return projects
 }

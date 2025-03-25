@@ -30,7 +30,7 @@ func NewCmdRefresh(f *cmdutil.Factory) *cobra.Command {
 		Long: heredoc.Doc(`
 			Refresh the cache of projects defined in the config file.
 
-			This command will force a refresh of both local and remote projects cache.
+			This command will force a refresh of the remote projects cache.
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return opts.Run(cmd.Context())

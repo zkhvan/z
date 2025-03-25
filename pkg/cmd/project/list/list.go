@@ -19,6 +19,9 @@ type Options struct {
 	FullPath     bool
 	RefreshCache bool
 	CacheDir     string
+
+	Remote bool
+	Local  bool
 }
 
 func NewCmdList(f *cmdutil.Factory) *cobra.Command {
@@ -37,6 +40,9 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 			Remote projects are found by searching for repositories on GitHub.
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := opts.Complete(cmd, args); err != nil {
+				return err
+			}
 			return opts.Run(cmd.Context())
 		},
 	}
@@ -48,7 +54,28 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 		will be saved in $XDG_CACHE_DIR/z or ~/.cache/z/
 	`))
 
+	cmd.Flags().BoolVar(&opts.Remote, "remote", true, "List remote projects")
+	cmd.Flags().BoolVar(&opts.Local, "local", true, "List local projects")
+
 	return cmd
+}
+
+func (opts *Options) Complete(cmd *cobra.Command, args []string) error {
+	remoteChanged := cmd.Flags().Changed("remote")
+	localChanged := cmd.Flags().Changed("local")
+
+	if remoteChanged || localChanged {
+		// Since the user has specified a type filter, reset the default values to false.
+		if !remoteChanged {
+			opts.Remote = false
+		}
+
+		if !localChanged {
+			opts.Local = false
+		}
+	}
+
+	return nil
 }
 
 func (opts *Options) Run(ctx context.Context) error {
@@ -58,7 +85,8 @@ func (opts *Options) Run(ctx context.Context) error {
 	}
 
 	results, err := project.ListProjects(ctx, cfg, &project.ListOptions{
-		Remote:       true,
+		Local:        opts.Local,
+		Remote:       opts.Remote,
 		RefreshCache: opts.RefreshCache,
 		CacheDir:     opts.CacheDir,
 	})
