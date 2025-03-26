@@ -30,8 +30,8 @@ func (s *Service) listRemoteProjects(ctx context.Context, opts *ListOptions) ([]
 		return nil, nil
 	}
 
-	if !opts.RefreshCache {
-		projects, err = fcache.LoadMany[Project](opts.CacheDir, "projects.remote")
+	if !s.refreshCache {
+		projects, err = fcache.LoadMany[Project](s.cacheDir, "projects.remote")
 		if errors.Is(err, fcache.ErrNotFound) {
 			projects, err = s.loadRemoteProjects(ctx)
 			if err != nil {
@@ -39,7 +39,7 @@ func (s *Service) listRemoteProjects(ctx context.Context, opts *ListOptions) ([]
 			}
 
 			ttl := time.Now().Add(time.Duration(s.cfg.TTL) * time.Second)
-			if err := fcache.SaveMany(opts.CacheDir, "projects.remote", projects, ttl); err != nil {
+			if err := fcache.SaveMany(s.cacheDir, "projects.remote", projects, ttl); err != nil {
 				return nil, fmt.Errorf("error saving remote projects to cache: %w", err)
 			}
 
@@ -58,7 +58,7 @@ func (s *Service) listRemoteProjects(ctx context.Context, opts *ListOptions) ([]
 	}
 
 	ttl := time.Now().Add(time.Duration(s.cfg.TTL) * time.Second)
-	if err := fcache.SaveMany(opts.CacheDir, "projects.remote", projects, ttl); err != nil {
+	if err := fcache.SaveMany(s.cacheDir, "projects.remote", projects, ttl); err != nil {
 		return nil, fmt.Errorf("error saving remote projects to cache: %w", err)
 	}
 
@@ -92,10 +92,6 @@ func (s *Service) loadRemoteProjects(ctx context.Context) ([]Project, error) {
 			if pattern.AlternatePath != nil {
 				alt := *pattern.AlternatePath
 				dir := r.String()
-
-				if strings.HasSuffix(alt, "/") {
-					dir = r.Name
-				}
 
 				abs = filepath.Join(root, alt, dir)
 			}

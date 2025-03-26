@@ -9,7 +9,6 @@ import (
 
 	"github.com/samber/lo"
 
-	"github.com/zkhvan/z/pkg/fcache"
 	"github.com/zkhvan/z/pkg/gh"
 )
 
@@ -21,10 +20,19 @@ const (
 )
 
 type Project struct {
-	Type         ProjectType `json:"type"`
-	ID           string      `json:"id"`
-	AbsolutePath string      `json:"absolute_path"`
-	RemoteID     string      `json:"remote_id"`
+	// Type represents how the project was discovered.
+	Type ProjectType `json:"type"`
+
+	// ID is the identifier of the project. It's the relative path to the
+	// project from the root directory.
+	ID string `json:"id"`
+
+	// AbsolutePath is the absolute path to the project.
+	AbsolutePath string `json:"absolute_path"`
+
+	// RemoteID is the identifier of the project on the remote service. This is
+	// usually owner/repo for GitHub.
+	RemoteID string `json:"remote_id"`
 }
 
 // URL returns the URL of the project.
@@ -57,9 +65,6 @@ func (p Project) Compare(other Project) int {
 type ListOptions struct {
 	Local  bool
 	Remote bool
-
-	RefreshCache bool
-	CacheDir     string
 }
 
 // ListProjects will search for repositories using the given config and options.
@@ -70,8 +75,6 @@ func (s *Service) ListProjects(ctx context.Context, opts *ListOptions) ([]Projec
 	if opts == nil {
 		opts = &ListOptions{}
 	}
-
-	opts.CacheDir = fcache.NormalizeCacheDir(opts.CacheDir)
 
 	remoteProjects, err := s.listRemoteProjects(ctx, opts)
 	if err != nil {

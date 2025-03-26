@@ -51,12 +51,13 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	service := project.NewService(cfg)
+	service := project.NewService(
+		cfg,
+		project.WithRefreshCache(true),
+		project.WithCacheDir(opts.CacheDir))
 
 	_, err := service.ListProjects(ctx, &project.ListOptions{
-		Remote:       true,
-		RefreshCache: true,
-		CacheDir:     opts.CacheDir,
+		Remote: true,
 	})
 	if err != nil {
 		return err

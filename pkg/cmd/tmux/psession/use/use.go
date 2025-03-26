@@ -38,11 +38,12 @@ func (o *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	service := project.NewService(cfg)
+	service := project.NewService(
+		cfg,
+		project.WithRefreshCache(true))
 
 	projects, err := service.ListProjects(ctx, &project.ListOptions{
-		Local:        true,
-		RefreshCache: true,
+		Local: true,
 	})
 	if err != nil {
 		return err

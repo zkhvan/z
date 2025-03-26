@@ -64,16 +64,17 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	service := project.NewService(cfg)
+	service := project.NewService(
+		cfg,
+		project.WithRefreshCache(opts.RefreshCache),
+		project.WithCacheDir(opts.CacheDir))
 
 	// TODO: This is a bit of a hack to get the projects. Should probably
 	// refactor this to be more efficient. This method allows proper handling of
 	// projects that use an alternate path.
 	projects, err := service.ListProjects(ctx, &project.ListOptions{
-		Local:        true,
-		Remote:       true,
-		RefreshCache: opts.RefreshCache,
-		CacheDir:     opts.CacheDir,
+		Local:  true,
+		Remote: true,
 	})
 	if err != nil {
 		return err
