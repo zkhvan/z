@@ -8,25 +8,26 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
+	"github.com/zkhvan/z/pkg/cmd/project/internal"
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/iolib"
 	"github.com/zkhvan/z/pkg/project"
 )
 
 type Options struct {
+	*internal.ProjectOptions
 	io     *iolib.IOStreams
 	config cmdutil.Config
 
-	ID string
-
+	ID           string
 	RefreshCache bool
-	CacheDir     string
 }
 
-func NewCmdClone(f *cmdutil.Factory) *cobra.Command {
+func NewCmdClone(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobra.Command {
 	opts := &Options{
-		io:     f.IOStreams,
-		config: f.Config,
+		ProjectOptions: projectOpts,
+		io:             f.IOStreams,
+		config:         f.Config,
 	}
 
 	cmd := &cobra.Command{
@@ -45,10 +46,6 @@ func NewCmdClone(f *cmdutil.Factory) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&opts.RefreshCache, "refresh-cache", false, "Refresh the cache")
-	cmd.Flags().StringVar(&opts.CacheDir, "cache-dir", "", heredoc.Doc(`
-		The directory to cache the list of projects. By default, the cache
-		will be saved in $XDG_CACHE_DIR/z or ~/.cache/z/
-	`))
 
 	return cmd
 }
