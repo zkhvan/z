@@ -64,10 +64,12 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
+	service := project.NewService(cfg)
+
 	// TODO: This is a bit of a hack to get the projects. Should probably
 	// refactor this to be more efficient. This method allows proper handling of
 	// projects that use an alternate path.
-	projects, err := project.ListProjects(ctx, cfg, &project.ListOptions{
+	projects, err := service.ListProjects(ctx, &project.ListOptions{
 		Local:        true,
 		Remote:       true,
 		RefreshCache: opts.RefreshCache,
@@ -84,7 +86,7 @@ func (opts *Options) Run(ctx context.Context) error {
 		return fmt.Errorf("project not found: %s", opts.ID)
 	}
 
-	if err = project.CloneProject(ctx, proj); err != nil {
+	if err = service.CloneProject(ctx, proj); err != nil {
 		return err
 	}
 

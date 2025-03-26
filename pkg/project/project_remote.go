@@ -22,7 +22,7 @@ func newRemoteProject(id, abs, remoteID string) Project {
 	}
 }
 
-func listRemoteProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project, error) {
+func (s *Service) listRemoteProjects(ctx context.Context, opts *ListOptions) ([]Project, error) {
 	var err error
 	var projects []Project
 
@@ -33,12 +33,12 @@ func listRemoteProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]P
 	if !opts.RefreshCache {
 		projects, err = fcache.LoadMany[Project](opts.CacheDir, "projects.remote")
 		if errors.Is(err, fcache.ErrNotFound) {
-			projects, err = loadRemoteProjects(ctx, cfg)
+			projects, err = s.loadRemoteProjects(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("error loading remote projects: %w", err)
 			}
 
-			ttl := time.Now().Add(time.Duration(cfg.TTL) * time.Second)
+			ttl := time.Now().Add(time.Duration(s.cfg.TTL) * time.Second)
 			if err := fcache.SaveMany(opts.CacheDir, "projects.remote", projects, ttl); err != nil {
 				return nil, fmt.Errorf("error saving remote projects to cache: %w", err)
 			}
@@ -52,12 +52,12 @@ func listRemoteProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]P
 		return projects, nil
 	}
 
-	projects, err = loadRemoteProjects(ctx, cfg)
+	projects, err = s.loadRemoteProjects(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error loading remote projects: %w", err)
 	}
 
-	ttl := time.Now().Add(time.Duration(cfg.TTL) * time.Second)
+	ttl := time.Now().Add(time.Duration(s.cfg.TTL) * time.Second)
 	if err := fcache.SaveMany(opts.CacheDir, "projects.remote", projects, ttl); err != nil {
 		return nil, fmt.Errorf("error saving remote projects to cache: %w", err)
 	}
@@ -65,13 +65,13 @@ func listRemoteProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]P
 	return projects, nil
 }
 
-func loadRemoteProjects(ctx context.Context, cfg Config) ([]Project, error) {
+func (s *Service) loadRemoteProjects(ctx context.Context) ([]Project, error) {
 	var (
 		projects = make([]Project, 0)
-		root     = oslib.Expand(cfg.Root)
+		root     = oslib.Expand(s.cfg.Root)
 	)
 
-	for _, rp := range cfg.RemotePatterns {
+	for _, rp := range s.cfg.RemotePatterns {
 		pattern, err := parseRemotePattern(rp)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing remote pattern %q: %w", rp, err)

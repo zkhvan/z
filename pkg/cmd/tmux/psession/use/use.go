@@ -38,7 +38,9 @@ func (o *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	projects, err := project.ListProjects(ctx, cfg, &project.ListOptions{
+	service := project.NewService(cfg)
+
+	projects, err := service.ListProjects(ctx, &project.ListOptions{
 		Local:        true,
 		RefreshCache: true,
 	})

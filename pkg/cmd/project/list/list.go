@@ -84,7 +84,9 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	results, err := project.ListProjects(ctx, cfg, &project.ListOptions{
+	service := project.NewService(cfg)
+
+	results, err := service.ListProjects(ctx, &project.ListOptions{
 		Local:        opts.Local,
 		Remote:       opts.Remote,
 		RefreshCache: opts.RefreshCache,

@@ -66,21 +66,19 @@ type ListOptions struct {
 //
 // By default, it will only search for local repositories. To search for remote
 // repositories, set opts.Remote to true.
-func ListProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project, error) {
-	cfg = cfg.setDefaults()
-
+func (s *Service) ListProjects(ctx context.Context, opts *ListOptions) ([]Project, error) {
 	if opts == nil {
 		opts = &ListOptions{}
 	}
 
 	opts.CacheDir = fcache.NormalizeCacheDir(opts.CacheDir)
 
-	remoteProjects, err := listRemoteProjects(ctx, cfg, opts)
+	remoteProjects, err := s.listRemoteProjects(ctx, opts)
 	if err != nil {
 		return nil, fmt.Errorf("error listing remote projects: %w", err)
 	}
 
-	localProjects, err := listLocalProjects(ctx, cfg, opts)
+	localProjects, err := s.listLocalProjects(ctx, opts)
 	if err != nil {
 		return nil, fmt.Errorf("error listing local projects: %w", err)
 	}
@@ -107,7 +105,7 @@ func combineProjects(remote, local []Project) []Project {
 }
 
 // CloneProject clones a project.
-func CloneProject(ctx context.Context, project Project) error {
+func (s *Service) CloneProject(ctx context.Context, project Project) error {
 	url := project.URL()
 	if url == "" {
 		return fmt.Errorf("error getting project URL")
