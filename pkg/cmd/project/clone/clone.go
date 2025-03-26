@@ -77,7 +77,7 @@ func (opts *Options) Run(ctx context.Context) error {
 	}
 
 	proj, ok := lo.Find(projects, func(p project.Project) bool {
-		return p.ID == opts.ID
+		return p.LocalID == opts.ID
 	})
 	if !ok {
 		return fmt.Errorf("project not found: %s", opts.ID)

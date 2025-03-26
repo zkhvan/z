@@ -12,7 +12,7 @@ import (
 func newLocalProject(id, abs string) Project {
 	return Project{
 		Type:         Local,
-		ID:           id,
+		LocalID:      id,
 		AbsolutePath: abs,
 	}
 }

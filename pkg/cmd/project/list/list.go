@@ -93,7 +93,7 @@ func (opts *Options) Run(ctx context.Context) error {
 	}
 
 	for _, result := range results {
-		path := result.ID
+		path := result.LocalID
 
 		if opts.FullPath {
 			path = result.AbsolutePath

@@ -23,7 +23,7 @@ func newRemoteProject(root string, pattern remotePattern, repo *gh.Repo) Project
 
 	return Project{
 		Type:         Remote,
-		ID:           id,
+		LocalID:      id,
 		AbsolutePath: abs,
 		RemoteID:     repo.String(),
 	}

@@ -23,16 +23,18 @@ type Project struct {
 	// Type represents how the project was discovered.
 	Type ProjectType `json:"type"`
 
-	// ID is the identifier of the project. It's the relative path to the
-	// project from the root directory.
-	ID string `json:"id"`
+	// LocalID is the identifier of the project on the local machine.
+	//
+	// For now, it's the relative path to the project from the root directory.
+	LocalID string `json:"local_id"`
+
+	// RemoteID is the identifier of the project on the remote service.
+	//
+	// For now, only GitHub is supported and this is usually the owner/repo.
+	RemoteID string `json:"remote_id"`
 
 	// AbsolutePath is the absolute path to the project.
 	AbsolutePath string `json:"absolute_path"`
-
-	// RemoteID is the identifier of the project on the remote service. This is
-	// usually owner/repo for GitHub.
-	RemoteID string `json:"remote_id"`
 }
 
 // URL returns the URL of the project.
@@ -44,7 +46,7 @@ type Project struct {
 func (p Project) URL() string {
 	id := p.RemoteID
 	if id == "" {
-		id = p.ID
+		id = p.LocalID
 	}
 
 	parts := strings.Split(id, "/")
