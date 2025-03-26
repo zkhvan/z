@@ -10,7 +10,6 @@ import (
 
 	"github.com/zkhvan/z/pkg/fcache"
 	"github.com/zkhvan/z/pkg/gh"
-	"github.com/zkhvan/z/pkg/oslib"
 )
 
 func newRemoteProject(root string, pattern remotePattern, repo *gh.Repo) Project {
@@ -75,7 +74,7 @@ func (s *Service) listRemoteProjects(ctx context.Context, opts *ListOptions) ([]
 func (s *Service) loadRemoteProjects(ctx context.Context) ([]Project, error) {
 	var (
 		projects = make([]Project, 0)
-		root     = oslib.Expand(s.cfg.Root)
+		root     = s.cfg.Root
 	)
 
 	for _, pattern := range s.cfg.remotePatterns {

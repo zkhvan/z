@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/zkhvan/z/pkg/fd"
-	"github.com/zkhvan/z/pkg/oslib"
 )
 
 func newLocalProject(id, abs string) Project {
@@ -32,7 +31,7 @@ func (s *Service) loadLocalProjects(ctx context.Context) ([]Project, error) {
 		hidden      = true
 		maxDepth    = s.cfg.MaxDepth
 		noIgnoreVCS = true
-		root        = oslib.Expand(s.cfg.Root)
+		root        = s.cfg.Root
 	)
 
 	var projects []Project

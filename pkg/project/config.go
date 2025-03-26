@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/zkhvan/z/pkg/cmdutil"
+	"github.com/zkhvan/z/pkg/oslib"
 )
 
 type Config struct {
@@ -35,6 +36,7 @@ func NewConfig(cfg cmdutil.Config) (Config, error) {
 	}
 
 	c = c.setDefaults()
+	c.Root = oslib.Expand(c.Root)
 
 	patterns, err := c.parseRemotePatterns()
 	if err != nil {
