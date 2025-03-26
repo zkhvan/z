@@ -3,12 +3,14 @@ package project
 import (
 	"context"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 
 	"github.com/samber/lo"
 
 	"github.com/zkhvan/z/pkg/fcache"
+	"github.com/zkhvan/z/pkg/gh"
 )
 
 type ProjectType string
@@ -22,6 +24,30 @@ type Project struct {
 	Type         ProjectType `json:"type"`
 	ID           string      `json:"id"`
 	AbsolutePath string      `json:"absolute_path"`
+	RemoteID     string      `json:"remote_id"`
+}
+
+// URL returns the URL of the project.
+//
+// This is a quick way to determine the URL based on the fact that all there's
+// an assumption that all projects are GitHub repositories.
+//
+// TODO: Detect the proper URL in a generic way, based on the project type.
+func (p Project) URL() string {
+	id := p.RemoteID
+	if id == "" {
+		id = p.ID
+	}
+
+	parts := strings.Split(id, "/")
+	if len(parts) < 2 {
+		return ""
+	}
+
+	owner := parts[0]
+	repo := parts[1]
+
+	return fmt.Sprintf("https://github.com/%s/%s", owner, repo)
 }
 
 func (p Project) Compare(other Project) int {
@@ -78,4 +104,24 @@ func combineProjects(remote, local []Project) []Project {
 	})
 
 	return projects
+}
+
+// CloneProject clones a project.
+func CloneProject(ctx context.Context, project Project) error {
+	url := project.URL()
+	if url == "" {
+		return fmt.Errorf("error getting project URL")
+	}
+
+	// Check if absolute path exists
+	if _, err := os.Stat(project.AbsolutePath); err == nil {
+		// TODO: confirm with the user what to do in this scenario.
+		return fmt.Errorf("project already exists: %s", project.AbsolutePath)
+	}
+
+	if _, err := gh.Clone(ctx, url, project.AbsolutePath); err != nil {
+		return fmt.Errorf("error cloning project: %w", err)
+	}
+
+	return nil
 }

@@ -13,11 +13,12 @@ import (
 	"github.com/zkhvan/z/pkg/oslib"
 )
 
-func newRemoteProject(id, abs string) Project {
+func newRemoteProject(id, abs, remoteID string) Project {
 	return Project{
 		Type:         Remote,
 		ID:           id,
 		AbsolutePath: abs,
+		RemoteID:     remoteID,
 	}
 }
 
@@ -104,7 +105,7 @@ func loadRemoteProjects(ctx context.Context, cfg Config) ([]Project, error) {
 				return nil, fmt.Errorf("error convert absolute path to relative path %q: %w", abs, err)
 			}
 
-			project := newRemoteProject(id, abs)
+			project := newRemoteProject(id, abs, r.String())
 			projects = append(projects, project)
 		}
 	}
