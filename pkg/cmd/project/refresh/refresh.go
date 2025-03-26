@@ -42,17 +42,16 @@ func NewCmdRefresh(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *co
 }
 
 func (opts *Options) Run(ctx context.Context) error {
-	var cfg project.Config
-	if err := opts.config.Unmarshal("projects", &cfg); err != nil {
+	service, err := project.NewService(
+		opts.config,
+		project.WithRefreshCache(true),
+		project.WithCacheDir(opts.CacheDir),
+	)
+	if err != nil {
 		return err
 	}
 
-	service := project.NewService(
-		cfg,
-		project.WithRefreshCache(true),
-		project.WithCacheDir(opts.CacheDir))
-
-	_, err := service.ListProjects(ctx, &project.ListOptions{
+	_, err = service.ListProjects(ctx, &project.ListOptions{
 		Remote: true,
 	})
 	if err != nil {

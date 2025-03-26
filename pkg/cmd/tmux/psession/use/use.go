@@ -32,15 +32,14 @@ func NewCmdUse(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func (o *Options) Run(ctx context.Context) error {
-	var cfg project.Config
-	if err := o.config.Unmarshal("projects", &cfg); err != nil {
+func (opts *Options) Run(ctx context.Context) error {
+	service, err := project.NewService(
+		opts.config,
+		project.WithRefreshCache(true),
+	)
+	if err != nil {
 		return err
 	}
-
-	service := project.NewService(
-		cfg,
-		project.WithRefreshCache(true))
 
 	projects, err := service.ListProjects(ctx, &project.ListOptions{
 		Local: true,

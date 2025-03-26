@@ -13,12 +13,19 @@ import (
 	"github.com/zkhvan/z/pkg/oslib"
 )
 
-func newRemoteProject(id, abs, remoteID string) Project {
+func newRemoteProject(root string, pattern remotePattern, repo *gh.Repo) Project {
+	id := repo.String()
+	if pattern.AlternatePath != nil {
+		id = filepath.Join(*pattern.AlternatePath, id)
+	}
+
+	abs := filepath.Join(root, id)
+
 	return Project{
 		Type:         Remote,
 		ID:           id,
 		AbsolutePath: abs,
-		RemoteID:     remoteID,
+		RemoteID:     repo.String(),
 	}
 }
 
@@ -71,42 +78,38 @@ func (s *Service) loadRemoteProjects(ctx context.Context) ([]Project, error) {
 		root     = oslib.Expand(s.cfg.Root)
 	)
 
-	for _, rp := range s.cfg.RemotePatterns {
-		pattern, err := parseRemotePattern(rp)
+	for _, pattern := range s.cfg.remotePatterns {
+		repos, err := s.loadRemoteRepos(ctx, pattern)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing remote pattern %q: %w", rp, err)
-		}
-
-		var repos []*gh.Repo
-		if pattern.Repo == nil {
-			repos, err = gh.ListRepos(ctx, &gh.RepoListOptions{Owner: pattern.Owner})
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			repos = append(repos, &gh.Repo{Owner: pattern.Owner, Name: *pattern.Repo})
+			return nil, fmt.Errorf("error loading remote repos: %w", err)
 		}
 
 		for _, r := range repos {
-			abs := filepath.Join(root, r.String())
-			if pattern.AlternatePath != nil {
-				alt := *pattern.AlternatePath
-				dir := r.String()
-
-				abs = filepath.Join(root, alt, dir)
-			}
-
-			id, err := filepath.Rel(root, abs)
-			if err != nil {
-				return nil, fmt.Errorf("error convert absolute path to relative path %q: %w", abs, err)
-			}
-
-			project := newRemoteProject(id, abs, r.String())
+			project := newRemoteProject(root, pattern, r)
 			projects = append(projects, project)
 		}
 	}
 
 	return projects, nil
+}
+
+func (s *Service) loadRemoteRepos(ctx context.Context, pattern remotePattern) ([]*gh.Repo, error) {
+	if pattern.Repo != nil {
+		// If the repo is specified, return a single repo.
+		return []*gh.Repo{
+			{
+				Owner: pattern.Owner,
+				Name:  *pattern.Repo,
+			},
+		}, nil
+	}
+
+	repos, err := gh.ListRepos(ctx, &gh.RepoListOptions{Owner: pattern.Owner})
+	if err != nil {
+		return nil, err
+	}
+
+	return repos, nil
 }
 
 type remotePattern struct {

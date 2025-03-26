@@ -2,6 +2,9 @@ package project
 
 import (
 	"cmp"
+	"fmt"
+
+	"github.com/zkhvan/z/pkg/cmdutil"
 )
 
 type Config struct {
@@ -21,7 +24,25 @@ type Config struct {
 	// alternate path is relative to the root directory. If the alternate path
 	// ends with a "/", the repo name (without the owner) will be used
 	// instead.
-	RemotePatterns []string `json:"remote_patterns"`
+	RemotePatterns []string        `json:"remote_patterns"`
+	remotePatterns []remotePattern `json:"-"`
+}
+
+func NewConfig(cfg cmdutil.Config) (Config, error) {
+	var c Config
+	if err := cfg.Unmarshal("projects", &c); err != nil {
+		return c, fmt.Errorf("error unmarshalling project config: %w", err)
+	}
+
+	c = c.setDefaults()
+
+	patterns, err := c.parseRemotePatterns()
+	if err != nil {
+		return c, fmt.Errorf("error parsing remote patterns: %w", err)
+	}
+	c.remotePatterns = patterns
+
+	return c, nil
 }
 
 func (c Config) setDefaults() Config {
@@ -36,4 +57,19 @@ func (c Config) setDefaults() Config {
 	}
 
 	return c
+}
+
+func (c Config) parseRemotePatterns() ([]remotePattern, error) {
+	patterns := make([]remotePattern, 0, len(c.RemotePatterns))
+
+	for _, pattern := range c.RemotePatterns {
+		parsed, err := parseRemotePattern(pattern)
+		if err != nil {
+			return nil, err
+		}
+
+		patterns = append(patterns, parsed)
+	}
+
+	return patterns, nil
 }

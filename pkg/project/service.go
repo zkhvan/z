@@ -1,6 +1,9 @@
 package project
 
 import (
+	"fmt"
+
+	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/fcache"
 )
 
@@ -25,8 +28,11 @@ func WithCacheDir(cacheDir string) ServiceOption {
 	}
 }
 
-func NewService(cfg Config, opts ...ServiceOption) *Service {
-	cfg = cfg.setDefaults()
+func NewService(config cmdutil.Config, opts ...ServiceOption) (*Service, error) {
+	cfg, err := NewConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("error creating config: %w", err)
+	}
 
 	s := &Service{cfg: cfg}
 
@@ -34,5 +40,5 @@ func NewService(cfg Config, opts ...ServiceOption) *Service {
 		opt(s)
 	}
 
-	return s
+	return s, nil
 }

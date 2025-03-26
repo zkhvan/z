@@ -75,15 +75,14 @@ func (opts *Options) Complete(cmd *cobra.Command, args []string) error {
 }
 
 func (opts *Options) Run(ctx context.Context) error {
-	var cfg project.Config
-	if err := opts.config.Unmarshal("projects", &cfg); err != nil {
+	service, err := project.NewService(
+		opts.config,
+		project.WithRefreshCache(opts.RefreshCache),
+		project.WithCacheDir(opts.CacheDir),
+	)
+	if err != nil {
 		return err
 	}
-
-	service := project.NewService(
-		cfg,
-		project.WithRefreshCache(opts.RefreshCache),
-		project.WithCacheDir(opts.CacheDir))
 
 	results, err := service.ListProjects(ctx, &project.ListOptions{
 		Local:  opts.Local,
