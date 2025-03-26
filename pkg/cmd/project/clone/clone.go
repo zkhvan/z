@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/MakeNowJust/heredoc/v2"
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	"github.com/zkhvan/z/pkg/cmd/project/internal"
@@ -19,8 +18,7 @@ type Options struct {
 	io     *iolib.IOStreams
 	config cmdutil.Config
 
-	ID           string
-	RefreshCache bool
+	ID string
 }
 
 func NewCmdClone(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobra.Command {
@@ -31,7 +29,7 @@ func NewCmdClone(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobr
 	}
 
 	cmd := &cobra.Command{
-		Use:   "clone <id>",
+		Use:   "clone <remote-id>",
 		Short: "Clone a project",
 		Long: heredoc.Doc(`
 			Clone a project to the default path.
@@ -45,8 +43,6 @@ func NewCmdClone(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobr
 		},
 	}
 
-	cmd.Flags().BoolVar(&opts.RefreshCache, "refresh-cache", false, "Refresh the cache")
-
 	return cmd
 }
 
@@ -58,34 +54,22 @@ func (opts *Options) Complete(cmd *cobra.Command, args []string) error {
 func (opts *Options) Run(ctx context.Context) error {
 	service, err := project.NewService(
 		opts.config,
-		project.WithRefreshCache(opts.RefreshCache),
 		project.WithCacheDir(opts.CacheDir),
 	)
 	if err != nil {
 		return err
 	}
 
-	// TODO: This is a bit of a hack to get the projects. Should probably
-	// refactor this to be more efficient. This method allows proper handling of
-	// projects that use an alternate path.
-	projects, err := service.ListProjects(ctx, &project.ListOptions{
-		Local:  true,
-		Remote: true,
-	})
+	project, err := service.GetRemoteProject(ctx, opts.ID)
 	if err != nil {
 		return err
 	}
 
-	proj, ok := lo.Find(projects, func(p project.Project) bool {
-		return p.LocalID == opts.ID
-	})
-	if !ok {
-		return fmt.Errorf("project not found: %s", opts.ID)
-	}
-
-	if err = service.CloneProject(ctx, proj); err != nil {
+	output, err := service.CloneProject(ctx, project)
+	if err != nil {
 		return err
 	}
+	fmt.Fprintln(opts.io.Out, output)
 
 	return nil
 }

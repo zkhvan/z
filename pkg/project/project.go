@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -64,6 +66,15 @@ func (p Project) Compare(other Project) int {
 	return strings.Compare(p.AbsolutePath, other.AbsolutePath)
 }
 
+func newProject(localID, remoteID, abs string) Project {
+	return Project{
+		Type:         Local,
+		LocalID:      localID,
+		RemoteID:     remoteID,
+		AbsolutePath: abs,
+	}
+}
+
 type ListOptions struct {
 	Local  bool
 	Remote bool
@@ -109,22 +120,61 @@ func combineProjects(remote, local []Project) []Project {
 	return projects
 }
 
+func (s *Service) toRemoteID(localID string) string {
+	// Convert a local ID to a remote ID.
+	// A local ID is represented as the relative path to the project from the root directory.
+	// The owner and repo can be extracted from the local ID by analyzing the last two segments of the ID.
+
+	owner := path.Base(path.Dir(localID))
+	repo := path.Base(localID)
+
+	return fmt.Sprintf("%s/%s", owner, repo)
+}
+
+func (s *Service) toLocalID(remoteID string) string {
+	parts := strings.Split(remoteID, "/")
+	if len(parts) < 2 {
+		return ""
+	}
+
+	owner := parts[0]
+	repo := parts[1]
+
+	localID := remoteID
+	for _, pattern := range s.cfg.remotePatterns {
+		if pattern.Owner != owner {
+			continue
+		}
+
+		if pattern.Repo != nil && *pattern.Repo != repo {
+			continue
+		}
+
+		if pattern.AlternatePath != nil {
+			localID = filepath.Join(*pattern.AlternatePath, localID)
+		}
+	}
+
+	return localID
+}
+
 // CloneProject clones a project.
-func (s *Service) CloneProject(ctx context.Context, project Project) error {
+func (s *Service) CloneProject(ctx context.Context, project Project) (string, error) {
 	url := project.URL()
 	if url == "" {
-		return fmt.Errorf("error getting project URL")
+		return "", fmt.Errorf("error getting project URL")
 	}
 
 	// Check if absolute path exists
 	if _, err := os.Stat(project.AbsolutePath); err == nil {
 		// TODO: confirm with the user what to do in this scenario.
-		return fmt.Errorf("project already exists: %s", project.AbsolutePath)
+		return "", fmt.Errorf("project already exists: %s", project.AbsolutePath)
 	}
 
-	if _, err := gh.Clone(ctx, url, project.AbsolutePath); err != nil {
-		return fmt.Errorf("error cloning project: %w", err)
+	output, err := gh.Clone(ctx, url, project.AbsolutePath)
+	if err != nil {
+		return "", fmt.Errorf("error cloning project: %w", err)
 	}
 
-	return nil
+	return output, nil
 }

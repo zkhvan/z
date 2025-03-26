@@ -23,7 +23,7 @@ func Clone(ctx context.Context, url, path string) (string, error) {
 		url, path,
 	)
 
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("error running command %q: %w", cmd.String(), err)
 	}

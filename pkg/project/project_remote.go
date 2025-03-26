@@ -28,6 +28,18 @@ func newRemoteProject(root string, pattern remotePattern, repo *gh.Repo) Project
 	}
 }
 
+func (s *Service) GetRemoteProject(ctx context.Context, remoteID string) (Project, error) {
+	root := s.cfg.Root
+
+	localID := s.toLocalID(remoteID)
+
+	return newProject(
+		localID,
+		remoteID,
+		filepath.Join(root, localID),
+	), nil
+}
+
 func (s *Service) listRemoteProjects(ctx context.Context, opts *ListOptions) ([]Project, error) {
 	var err error
 	var projects []Project
