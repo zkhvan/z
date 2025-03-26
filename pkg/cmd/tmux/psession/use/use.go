@@ -39,6 +39,7 @@ func (o *Options) Run(ctx context.Context) error {
 	}
 
 	projects, err := project.ListProjects(ctx, cfg, &project.ListOptions{
+		Local:        true,
 		RefreshCache: true,
 	})
 	if err != nil {
