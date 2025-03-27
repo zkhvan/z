@@ -1,6 +1,6 @@
 # Zhenya's CLI - z
 
-[![Tests](https://github.com/zkhvan/z/actions/workflows/test.yml/badge.svg)](https://github.com/zkhvan/z/actions/workflows/test.yml)
+[![Tests](https://github.com/zkhvan/z/actions/workflows/ci.yaml/badge.svg)](https://github.com/zkhvan/z/actions/workflows/ci.yaml)
 
 A CLI designed for productivity, written in Go.
 
