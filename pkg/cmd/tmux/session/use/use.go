@@ -13,13 +13,13 @@ import (
 
 type Options struct{}
 
-func NewCmdUse(f *cmdutil.Factory) *cobra.Command {
+func NewCmdUse(_ *cmdutil.Factory) *cobra.Command {
 	opts := &Options{}
 
 	cmd := &cobra.Command{
 		Use:   "use",
 		Short: "Use a tmux session",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return opts.Run(cmd.Context())
 		},
 	}
@@ -36,7 +36,7 @@ func (opts *Options) Run(ctx context.Context) error {
 	}
 
 	session, err := fzf.One(ctx, sessions, sessionByName)
-	if errors.Is(err, fzf.ErrCancelled) {
+	if errors.Is(err, fzf.ErrCanceled) {
 		return nil
 	}
 	if err != nil {

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+function __usage() {
+  cat <<EOF
+Usage: $(basename "$0") BINARY_PATH REPO_URL VERSION
+
+Install a Go tool to a specific path if it doesn't exist.
+
+Arguments:
+    BINARY_PATH    Full path where the binary should be installed
+    REPO_URL       Go repository URL
+    VERSION        Version to install (e.g., v1.2.3)
+EOF
+  exit 1
+}
+
+function __main() {
+  # Check minimum required arguments
+  [[ $# -lt 3 ]] && __usage
+
+  local binary_path="${1}"
+  local repo_url="${2}"
+  local version="${3}"
+  shift 3
+
+  [[ -f "${binary_path}" ]] && exit 0
+
+  TMP_DIR=$(mktemp -d)
+  cd "$TMP_DIR"
+
+  echo "Installing ${repo_url}@${version} to ${binary_path}"
+
+  # Download binary using Go to TMP_DIR
+  GOBIN="$TMP_DIR" go install "${repo_url}@${version}"
+
+  # Move to desired location
+  mkdir -p $(dirname ${binary_path})
+  mv "${TMP_DIR}/$(basename ${repo_url})" "${binary_path}"
+
+  # Cleanup
+  rm -rf "${TMP_DIR}"
+}
+
+__main "$@"

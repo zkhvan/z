@@ -53,7 +53,7 @@ func newProject(localID, remoteID, abs string) Project {
 	}
 }
 
-func (s *Service) Get(ctx context.Context, id string) (Project, error) {
+func (s *Service) Get(_ context.Context, id string) (Project, error) {
 	var project Project
 
 	parts := strings.Split(id, "/")

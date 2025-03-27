@@ -13,7 +13,7 @@ import (
 
 type Options struct{}
 
-func NewCmdKill(f *cmdutil.Factory) *cobra.Command {
+func NewCmdKill(_ *cmdutil.Factory) *cobra.Command {
 	opts := &Options{}
 
 	cmd := &cobra.Command{
@@ -28,7 +28,7 @@ func NewCmdKill(f *cmdutil.Factory) *cobra.Command {
 			2. Automatically switch to the first session alphabetically (if available)
 			3. If no other sessions are available, kill the current session.
 		`),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return opts.Run(cmd.Context())
 		},
 	}
@@ -49,7 +49,7 @@ func (o *Options) Run(ctx context.Context) error {
 	}()
 
 	// Try to switch to last active session
-	if err := tmux.SwitchClientLast(ctx); err == nil {
+	if err = tmux.SwitchClientLast(ctx); err == nil {
 		return nil
 	}
 
@@ -70,9 +70,5 @@ func (o *Options) Run(ctx context.Context) error {
 	sort.Slice(sessions, func(i, j int) bool {
 		return sessions[i].Name < sessions[j].Name
 	})
-	if err := tmux.SwitchClient(ctx, sessions[0]); err != nil {
-		return err
-	}
-
-	return nil
+	return tmux.SwitchClient(ctx, sessions[0])
 }

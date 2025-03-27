@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+function __usage() {
+  cat <<EOF
+Usage: $(basename "$0") BINARY_PATH VERSION
+
+Install golangci-lint to a specific path if it doesn't exist.
+
+Arguments:
+    BINARY_PATH    Path where golangci-lint should be installed
+    VERSION        Version to install (e.g., v1.56.2)
+EOF
+  exit 1
+}
+
+function __main() {
+  # Check minimum required arguments
+  [[ $# -lt 2 ]] && __usage
+
+  local binary_path="${1}"
+  local version="${2}"
+  shift 2
+
+  [[ -f "${binary_path}" ]] && exit 0
+
+  TMP_DIR=$(mktemp -d)
+  cd "$TMP_DIR"
+
+  echo "Installing golangci-lint@${version} to ${binary_path}"
+
+  # Download and run the install script
+  curl -fsSL -o install.sh \
+    https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh
+  chmod 0700 install.sh
+  ./install.sh -b "${TMP_DIR}" "${version}"
+
+  # Move to desired location
+  mkdir -p $(dirname ${binary_path})
+  mv "${TMP_DIR}/golangci-lint" "${binary_path}"
+
+  # Cleanup
+  rm -rf "${TMP_DIR}"
+}
+
+__main "$@"

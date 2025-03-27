@@ -31,6 +31,7 @@ func ListRepos(ctx context.Context, opts *RepoListOptions) ([]*Repo, error) {
 		return nil, errors.New("owner is required")
 	}
 
+	// #nosec G204
 	cmd := exec.CommandContext(
 		ctx,
 		"gh", "repo", "list",

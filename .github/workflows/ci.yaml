@@ -24,5 +24,4 @@ jobs:
 
       - name: Run CI scripts
         run: |
-          make ci-test
-          make ci-build
+          make ci

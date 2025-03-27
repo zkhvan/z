@@ -16,7 +16,7 @@ type Options struct {
 	VersionInfo string
 }
 
-func NewCmdVersion(f *cmdutil.Factory, version, date string) *cobra.Command {
+func NewCmdVersion(f *cmdutil.Factory, version, _ string) *cobra.Command {
 	opts := &Options{
 		io:          f.IOStreams,
 		VersionInfo: version,
@@ -36,13 +36,13 @@ func NewCmdVersion(f *cmdutil.Factory, version, date string) *cobra.Command {
 	return cmd
 }
 
-func (opts *Options) Complete(cmd *cobra.Command, args []string) error {
+func (opts *Options) Complete(cmd *cobra.Command, _ []string) error {
 	opts.VersionInfo = cmd.Root().Annotations["versionInfo"]
 	return nil
 }
 
-func (o *Options) Run() error {
-	fmt.Fprint(o.io.Out, o.VersionInfo)
+func (opts *Options) Run() error {
+	fmt.Fprint(opts.io.Out, opts.VersionInfo)
 	return nil
 }
 

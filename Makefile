@@ -1,9 +1,11 @@
+include $(CURDIR)/hack/tools.mk
+
 MAIN_PACKAGE_PATH := ./cmd/z
 BINARY_NAME       := ./bin/z
 
-# ============================================================================
+# ==========================================================================
 # HELPERS
-# ============================================================================
+# ==========================================================================
 
 ## help: print this help message
 .PHONY: help
@@ -11,52 +13,92 @@ help:
 	@echo 'Usage:'
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
 
-# ============================================================================
+# ==========================================================================
 # QUALITY CONTROL
-# ============================================================================
+# ==========================================================================
 
-## tidy: format code and tidy modfile
+# --------------------------------------------------------------------------
+# HELPERS
+# --------------------------------------------------------------------------
+
+## tidy: tidy the code
 .PHONY: tidy
-tidy:
-	go fmt ./...
+tidy: tidy-go
+
+## tidy-go: format code and tidy modfile
+.PHONY: tidy-go
+tidy-go: format-go
 	go mod tidy -v
+
+## tidy-go-verify: verify go.mod is tidy
+.PHONY: tidy-go-verify
+tidy-go-verify: tidy-go
+	git diff --exit-code -- go.mod go.sum || { \
+	echo "go.mod/go.sum not tidy - run 'go mod tidy'"; \
+	exit 1; \
+}; \
+
+# --------------------------------------------------------------------------
+# LINTERS
+# --------------------------------------------------------------------------
 
 ## lint: lint the code
 .PHONY: lint
-lint:
-	golangci-lint run
+lint: lint-go
 
-## lint/fix: lint the code, auto-fix if possible
-.PHONY: lint/fix
-lint/fix:
-	golangci-lint run --fix
+## lint-go: lint the go code
+.PHONY: lint-go
+lint-go: install-golangci-lint
+	$(GOLANGCI_LINT) run
 
-# ============================================================================
+## lint-go-fix: lint the go code, auto-fix if possible
+.PHONY: lint-go-fix
+lint-go-fix:
+	$(GOLANGCI_LINT) run --fix
+
+# --------------------------------------------------------------------------
+# FORMATTERS
+# --------------------------------------------------------------------------
+
+.PHONY: format-go
+format-go:
+	go fmt ./...
+
+# ==========================================================================
 # DEVELOPMENT
-# ============================================================================
+# ==========================================================================
 
 ## test: run all tests
 .PHONY: test
 test:
-	go test -v -race ./...
+	go test \
+		-v \
+		-timeout=300s \
+		-coverprofile=coverage.out \
+		-covermode=atomic \
+		-race \
+		./...
+
+## test-report: generate a test report
+test-report: test
+	go tool cover -func coverage.out
+	go tool cover -html coverage.out -o coverage.html
+
 
 ## build: build the application
 .PHONY: build
 build:
-	CGO_ENABLED=0 go build -o=${BINARY_NAME} ${MAIN_PACKAGE_PATH}
+	CGO_ENABLED=0 go build \
+		-ldflags "-w -X $(VERSION_PACKAGE).Version=$(VERSION) -X $(VERSION_PACKAGE).Date=$$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+		-o=${BINARY_NAME} \
+		${MAIN_PACKAGE_PATH}
 
-# ============================================================================
+# ==========================================================================
 # CI
 #
 # These targets are used to run the tests and build the application in the CI.
-# ============================================================================
+# ==========================================================================
 
-## ci-test: run tests with coverage for CI
-.PHONY: ci-test
-ci-test:
-	./hack/ci/test.sh
-
-## ci-build: verify build for CI
-.PHONY: ci-build
-ci-build:
-	./hack/ci/build.sh
+## ci: run automated CI checks
+.PHONY: ci
+ci: tidy-go-verify test-report build

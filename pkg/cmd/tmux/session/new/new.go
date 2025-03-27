@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/spf13/cobra"
+
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/tmux"
 )
@@ -13,13 +14,14 @@ type Options struct {
 	Dir  string
 }
 
-func NewCmdNew(f *cmdutil.Factory) *cobra.Command {
+//nolint:revive
+func NewCmdNew(_ *cmdutil.Factory) *cobra.Command {
 	opts := &Options{}
 
 	cmd := &cobra.Command{
 		Use:   "new",
 		Short: "New tmux session",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return opts.Run(cmd.Context())
 		},
 	}
@@ -35,15 +37,11 @@ func NewCmdNew(f *cmdutil.Factory) *cobra.Command {
 }
 
 func (opts *Options) Run(ctx context.Context) error {
-	if err := tmux.NewSession(
+	return tmux.NewSession(
 		ctx,
 		&tmux.NewOptions{
 			Name: opts.Name,
 			Dir:  opts.Dir,
 		},
-	); err != nil {
-		return err
-	}
-
-	return nil
+	)
 }

@@ -201,6 +201,7 @@ func NewSession(ctx context.Context, opts *NewOptions) error {
 }
 
 func KillSession(ctx context.Context, session Session) error {
+	// #nosec G204
 	cmd := exec.CommandContext(
 		ctx,
 		"tmux",

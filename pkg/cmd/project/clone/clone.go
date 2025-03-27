@@ -46,7 +46,7 @@ func NewCmdClone(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobr
 	return cmd
 }
 
-func (opts *Options) Complete(cmd *cobra.Command, args []string) error {
+func (opts *Options) Complete(_ *cobra.Command, args []string) error {
 	opts.ID = args[0]
 	return nil
 }
@@ -60,12 +60,12 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	project, err := service.Get(ctx, opts.ID)
+	proj, err := service.Get(ctx, opts.ID)
 	if err != nil {
 		return err
 	}
 
-	output, err := service.CloneProject(ctx, project)
+	output, err := service.CloneProject(ctx, proj)
 	if err != nil {
 		return err
 	}

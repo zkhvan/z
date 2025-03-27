@@ -11,9 +11,7 @@ import (
 	"strings"
 )
 
-var (
-	ErrCancelled = errors.New("cancelled")
-)
+var ErrCanceled = errors.New("canceled")
 
 func One[T any](
 	ctx context.Context,
@@ -40,7 +38,7 @@ func One[T any](
 
 	if err := cmd.Run(); err != nil {
 		if cmd.ProcessState.ExitCode() == 130 {
-			return t, ErrCancelled
+			return t, ErrCanceled
 		}
 
 		return t, fmt.Errorf("error running command %q: %w", cmd.String(), err)

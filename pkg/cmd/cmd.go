@@ -57,6 +57,7 @@ func (h *DefaultPluginHandler) Execute(executablePath string, cmdArgs, environme
 	// invoke cmd binary relaying the environment and args given append
 	// executablePath to cmdArgs, as execve will make first argument the
 	// "binary name".
+	// #nosec G204
 	return syscall.Exec(executablePath, append([]string{executablePath}, cmdArgs...), environment)
 }
 
@@ -69,7 +70,7 @@ func HandlePluginCommand(handler cmdutil.PluginHandler, args []string, exactMatc
 		if strings.HasPrefix(arg, "-") {
 			break
 		}
-		remainingArgs = append(remainingArgs, strings.Replace(arg, "-", "_", -1))
+		remainingArgs = append(remainingArgs, strings.ReplaceAll(arg, "-", "_"))
 	}
 
 	if len(remainingArgs) == 0 {
@@ -103,11 +104,7 @@ func HandlePluginCommand(handler cmdutil.PluginHandler, args []string, exactMatc
 	}
 
 	// invoke cmd binary relaying the current environment and args given
-	if err := handler.Execute(foundBinaryPath, args[len(remainingArgs):], os.Environ()); err != nil {
-		return err
-	}
-
-	return nil
+	return handler.Execute(foundBinaryPath, args[len(remainingArgs):], os.Environ())
 }
 
 func Command(name string, arg ...string) *exec.Cmd {

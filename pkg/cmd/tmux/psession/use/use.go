@@ -24,7 +24,7 @@ func NewCmdUse(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "use",
 		Short: "Use a tmux project session",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return opts.Run(cmd.Context())
 		},
 	}
@@ -48,29 +48,25 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	project, err := fzf.One(
+	proj, err := fzf.One(
 		ctx,
 		projects,
 		projectByPath,
 	)
-	if errors.Is(err, fzf.ErrCancelled) {
+	if errors.Is(err, fzf.ErrCanceled) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
 
-	if err := tmux.NewSession(
+	return tmux.NewSession(
 		ctx,
 		&tmux.NewOptions{
-			Name: project.LocalID,
-			Dir:  project.AbsolutePath,
+			Name: proj.LocalID,
+			Dir:  proj.AbsolutePath,
 		},
-	); err != nil {
-		return err
-	}
-
-	return nil
+	)
 }
 
 func projectByPath(p project.Project, _ int) string {

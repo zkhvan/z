@@ -9,12 +9,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
 	"github.com/zkhvan/z/pkg/iolib"
 )
 
-var (
-	ValidPluginFilenamePrefixes = []string{"z"}
-)
+var ValidPluginFilenamePrefixes = []string{"z"}
 
 // pathVerifier receives a path and determines if it is valid or not
 type PathVerifier interface {
@@ -54,7 +53,11 @@ func (v *CommandOverrideVerifier) Verify(path string) []error {
 	}
 
 	if existingPath, ok := v.seenPlugins[binName]; ok {
-		errors = append(errors, fmt.Errorf("warning: %s is overshadowed by a similarly named plugin: %s", path, existingPath))
+		errors = append(errors, fmt.Errorf(
+			"warning: %s is overshadowed by a similarly named plugin: %s",
+			path,
+			existingPath,
+		))
 	} else {
 		v.seenPlugins[binName] = path
 	}
@@ -82,7 +85,7 @@ func isExecutable(fullPath string) (bool, error) {
 		return false, nil
 	}
 
-	if m := info.Mode(); !m.IsDir() && m&0111 != 0 {
+	if m := info.Mode(); !m.IsDir() && m&0o111 != 0 {
 		return true, nil
 	}
 
@@ -104,9 +107,9 @@ func uniquePathsList(paths []string) []string {
 	return newPaths
 }
 
-func hasValidPrefix(filepath string, validPrefixes []string) bool {
+func hasValidPrefix(path string, validPrefixes []string) bool {
 	for _, prefix := range validPrefixes {
-		if !strings.HasPrefix(filepath, prefix+"-") {
+		if !strings.HasPrefix(path, prefix+"-") {
 			continue
 		}
 		return true
@@ -114,7 +117,7 @@ func hasValidPrefix(filepath string, validPrefixes []string) bool {
 	return false
 }
 
-type PluginListOptions struct {
+type ListOptions struct {
 	Verifier PathVerifier
 	NameOnly bool
 
@@ -123,7 +126,7 @@ type PluginListOptions struct {
 	iolib.IOStreams
 }
 
-func (o *PluginListOptions) Complete(cmd *cobra.Command) {
+func (o *ListOptions) Complete(cmd *cobra.Command) {
 	o.Verifier = &CommandOverrideVerifier{
 		root:        cmd.Root(),
 		seenPlugins: make(map[string]string),
@@ -132,7 +135,7 @@ func (o *PluginListOptions) Complete(cmd *cobra.Command) {
 	o.PluginPaths = filepath.SplitList(os.Getenv("PATH"))
 }
 
-func (o *PluginListOptions) Run() error {
+func (o *ListOptions) Run() error {
 	plugins, pluginErrors := o.ListPlugins()
 
 	if len(plugins) > 0 {
@@ -175,7 +178,7 @@ func (o *PluginListOptions) Run() error {
 }
 
 // ListPlugins returns list of plugin paths.
-func (o *PluginListOptions) ListPlugins() ([]string, []error) {
+func (o *ListOptions) ListPlugins() ([]string, []error) {
 	plugins := []string{}
 	errors := []error{}
 
