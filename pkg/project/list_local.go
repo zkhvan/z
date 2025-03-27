@@ -6,36 +6,26 @@ import (
 	"path/filepath"
 
 	"github.com/zkhvan/z/pkg/fd"
-	"github.com/zkhvan/z/pkg/oslib"
 )
 
-func newLocalProject(id, abs string) Project {
-	return Project{
-		Type:         Local,
-		ID:           id,
-		AbsolutePath: abs,
-	}
-}
-
-func listLocalProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project, error) {
+func (s *Service) listLocalProjects(ctx context.Context, opts *ListOptions) ([]Project, error) {
 	if !opts.Local {
 		return nil, nil
 	}
 
 	// Local projects aren't cached, so we always load from the filesystem.
-	return loadLocalProjects(ctx, cfg)
+	return s.loadLocalProjects(ctx)
 }
 
-func loadLocalProjects(ctx context.Context, cfg Config) ([]Project, error) {
+func (s *Service) loadLocalProjects(ctx context.Context) ([]Project, error) {
 	var (
 		glob        = true
 		hidden      = true
-		maxDepth    = cfg.MaxDepth
+		maxDepth    = s.cfg.MaxDepth
 		noIgnoreVCS = true
-		root        = oslib.Expand(cfg.Root)
+		root        = s.cfg.Root
 	)
 
-	var projects []Project
 	rr, err := fd.Run(
 		ctx,
 		".git",
@@ -51,6 +41,7 @@ func loadLocalProjects(ctx context.Context, cfg Config) ([]Project, error) {
 		return nil, err
 	}
 
+	var projects []Project
 	for _, r := range rr {
 		abs := filepath.Dir(filepath.Clean(r))
 
@@ -59,7 +50,11 @@ func loadLocalProjects(ctx context.Context, cfg Config) ([]Project, error) {
 			return nil, fmt.Errorf("error convert absolute path to relative path %q: %w", r, err)
 		}
 
-		project := newLocalProject(id, abs)
+		project := newProject(
+			id,
+			s.toRemoteID(id),
+			abs,
+		)
 		projects = append(projects, project)
 	}
 

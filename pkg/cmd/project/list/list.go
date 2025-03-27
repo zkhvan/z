@@ -7,27 +7,28 @@ import (
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
 
+	"github.com/zkhvan/z/pkg/cmd/project/internal"
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/iolib"
 	"github.com/zkhvan/z/pkg/project"
 )
 
 type Options struct {
+	*internal.ProjectOptions
 	io     *iolib.IOStreams
 	config cmdutil.Config
 
 	FullPath     bool
 	RefreshCache bool
-	CacheDir     string
-
-	Remote bool
-	Local  bool
+	Remote       bool
+	Local        bool
 }
 
-func NewCmdList(f *cmdutil.Factory) *cobra.Command {
+func NewCmdList(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobra.Command {
 	opts := &Options{
-		io:     f.IOStreams,
-		config: f.Config,
+		ProjectOptions: projectOpts,
+		io:             f.IOStreams,
+		config:         f.Config,
 	}
 
 	cmd := &cobra.Command{
@@ -49,11 +50,6 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 
 	cmd.Flags().BoolVar(&opts.FullPath, "full-path", false, "Output the full path")
 	cmd.Flags().BoolVar(&opts.RefreshCache, "refresh-cache", false, "Refresh the cache")
-	cmd.Flags().StringVar(&opts.CacheDir, "cache-dir", "", heredoc.Doc(`
-		The directory to cache the list of projects. By default, the cache
-		will be saved in $XDG_CACHE_DIR/z or ~/.cache/z/
-	`))
-
 	cmd.Flags().BoolVar(&opts.Remote, "remote", true, "List remote projects")
 	cmd.Flags().BoolVar(&opts.Local, "local", true, "List local projects")
 
@@ -79,23 +75,25 @@ func (opts *Options) Complete(cmd *cobra.Command, args []string) error {
 }
 
 func (opts *Options) Run(ctx context.Context) error {
-	var cfg project.Config
-	if err := opts.config.Unmarshal("projects", &cfg); err != nil {
+	service, err := project.NewService(
+		opts.config,
+		project.WithRefreshCache(opts.RefreshCache),
+		project.WithCacheDir(opts.CacheDir),
+	)
+	if err != nil {
 		return err
 	}
 
-	results, err := project.ListProjects(ctx, cfg, &project.ListOptions{
-		Local:        opts.Local,
-		Remote:       opts.Remote,
-		RefreshCache: opts.RefreshCache,
-		CacheDir:     opts.CacheDir,
+	results, err := service.ListProjects(ctx, &project.ListOptions{
+		Local:  opts.Local,
+		Remote: opts.Remote,
 	})
 	if err != nil {
 		return err
 	}
 
 	for _, result := range results {
-		path := result.ID
+		path := result.LocalID
 
 		if opts.FullPath {
 			path = result.AbsolutePath

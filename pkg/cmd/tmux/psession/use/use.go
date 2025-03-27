@@ -32,14 +32,17 @@ func NewCmdUse(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func (o *Options) Run(ctx context.Context) error {
-	var cfg project.Config
-	if err := o.config.Unmarshal("projects", &cfg); err != nil {
+func (opts *Options) Run(ctx context.Context) error {
+	service, err := project.NewService(
+		opts.config,
+		project.WithRefreshCache(true),
+	)
+	if err != nil {
 		return err
 	}
 
-	projects, err := project.ListProjects(ctx, cfg, &project.ListOptions{
-		RefreshCache: true,
+	projects, err := service.ListProjects(ctx, &project.ListOptions{
+		Local: true,
 	})
 	if err != nil {
 		return err
@@ -60,7 +63,7 @@ func (o *Options) Run(ctx context.Context) error {
 	if err := tmux.NewSession(
 		ctx,
 		&tmux.NewOptions{
-			Name: project.ID,
+			Name: project.LocalID,
 			Dir:  project.AbsolutePath,
 		},
 	); err != nil {
@@ -71,5 +74,5 @@ func (o *Options) Run(ctx context.Context) error {
 }
 
 func projectByPath(p project.Project, _ int) string {
-	return p.ID
+	return p.LocalID
 }

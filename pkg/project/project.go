@@ -3,79 +3,114 @@ package project
 import (
 	"context"
 	"fmt"
-	"slices"
+	"path"
+	"path/filepath"
 	"strings"
-
-	"github.com/samber/lo"
-
-	"github.com/zkhvan/z/pkg/fcache"
-)
-
-type ProjectType string
-
-const (
-	Local  ProjectType = "local"
-	Remote ProjectType = "remote"
 )
 
 type Project struct {
-	Type         ProjectType `json:"type"`
-	ID           string      `json:"id"`
-	AbsolutePath string      `json:"absolute_path"`
+	// LocalID is the identifier of the project on the local machine.
+	//
+	// For now, it's the relative path to the project from the root directory.
+	LocalID string `json:"local_id"`
+
+	// RemoteID is the identifier of the project on the remote service.
+	//
+	// For now, only GitHub is supported and this is usually the owner/repo.
+	RemoteID string `json:"remote_id"`
+
+	// AbsolutePath is the absolute path to the project.
+	AbsolutePath string `json:"absolute_path"`
+}
+
+// URL returns the URL of the project.
+//
+// This is a quick way to determine the URL based on the fact that all there's
+// an assumption that all projects are GitHub repositories.
+//
+// TODO: Detect the proper URL in a generic way, based on the project type.
+func (p Project) URL() string {
+	owner, repo := p.OwnerRepo()
+	return fmt.Sprintf("https://github.com/%s/%s", owner, repo)
+}
+
+func (p Project) OwnerRepo() (string, string) {
+	owner := path.Dir(p.RemoteID)
+	repo := path.Base(p.RemoteID)
+
+	return owner, repo
 }
 
 func (p Project) Compare(other Project) int {
 	return strings.Compare(p.AbsolutePath, other.AbsolutePath)
 }
 
-type ListOptions struct {
-	Local  bool
-	Remote bool
-
-	RefreshCache bool
-	CacheDir     string
+func newProject(localID, remoteID, abs string) Project {
+	return Project{
+		LocalID:      localID,
+		RemoteID:     remoteID,
+		AbsolutePath: abs,
+	}
 }
 
-// ListProjects will search for repositories using the given config and options.
-//
-// By default, it will only search for local repositories. To search for remote
-// repositories, set opts.Remote to true.
-func ListProjects(ctx context.Context, cfg Config, opts *ListOptions) ([]Project, error) {
-	cfg = cfg.setDefaults()
+func (s *Service) Get(ctx context.Context, id string) (Project, error) {
+	var project Project
 
-	if opts == nil {
-		opts = &ListOptions{}
+	parts := strings.Split(id, "/")
+
+	switch n := len(parts); {
+	case n < 2:
+		return project, fmt.Errorf("invalid ID")
+	case n == 2:
+		project.RemoteID = id
+		project.LocalID = s.toLocalID(id)
+	case 2 < n:
+		project.LocalID = id
+		project.RemoteID = s.toRemoteID(id)
 	}
 
-	opts.CacheDir = fcache.NormalizeCacheDir(opts.CacheDir)
+	project.AbsolutePath = filepath.Join(s.cfg.Root, project.LocalID)
 
-	remoteProjects, err := listRemoteProjects(ctx, cfg, opts)
-	if err != nil {
-		return nil, fmt.Errorf("error listing remote projects: %w", err)
-	}
-
-	localProjects, err := listLocalProjects(ctx, cfg, opts)
-	if err != nil {
-		return nil, fmt.Errorf("error listing local projects: %w", err)
-	}
-
-	projects := combineProjects(remoteProjects, localProjects)
-	return projects, nil
+	return project, nil
 }
 
-func combineProjects(remote, local []Project) []Project {
-	projects := make([]Project, 0, len(remote)+len(local))
+func (s *Service) toRemoteID(localID string) string {
+	// Convert a local ID to a remote ID.
+	// A local ID is represented as the relative path to the project from the
+	// root directory. The owner and repo can be extracted from the local ID
+	// by analyzing the last two segments of the ID.
 
-	projects = append(projects, remote...)
-	projects = append(projects, local...)
+	owner := path.Base(path.Dir(localID))
+	repo := path.Base(localID)
 
-	projects = lo.UniqBy(projects, func(p Project) string {
-		return p.AbsolutePath
-	})
+	return fmt.Sprintf("%s/%s", owner, repo)
+}
 
-	slices.SortFunc(projects, func(a, b Project) int {
-		return a.Compare(b)
-	})
+// TODO: iterating over remote patterns isn't the most efficient, might want
+// to make it lookup-based instead.
+func (s *Service) toLocalID(remoteID string) string {
+	parts := strings.Split(remoteID, "/")
+	if len(parts) < 2 {
+		return ""
+	}
 
-	return projects
+	owner := parts[0]
+	repo := parts[1]
+
+	localID := remoteID
+	for _, pattern := range s.cfg.remotePatterns {
+		if pattern.Owner != owner {
+			continue
+		}
+
+		if pattern.Repo != "*" && pattern.Repo != repo {
+			continue
+		}
+
+		// The alternate path might be empty, but filepath.Join will handle it
+		// gracefully.
+		localID = filepath.Join(pattern.AlternatePath, localID)
+	}
+
+	return localID
 }
