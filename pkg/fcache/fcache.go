@@ -118,18 +118,17 @@ func SaveMany[T any](dir string, key string, data []T, expiry time.Time) error {
 		return err
 	}
 
-	if err := cleanupOldCacheFiles(root, key); err != nil {
+	if err := cleanupOldCacheFiles(root, key, expiry); err != nil {
 		return fmt.Errorf("failed to cleanup old cache files: %w", err)
 	}
 
 	return nil
 }
 
-func cleanupOldCacheFiles(root *os.Root, key string) error {
-	now := time.Now().Unix()
-
+func cleanupOldCacheFiles(root *os.Root, key string, latestTimestamp time.Time) error {
 	pattern := fmt.Sprintf("%s-%%d.json", key)
 	err := fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
+		fmt.Println(d.Name())
 		if err != nil {
 			return err
 		}
@@ -143,7 +142,7 @@ func cleanupOldCacheFiles(root *os.Root, key string) error {
 			return nil
 		}
 
-		if timestamp < now {
+		if timestamp < latestTimestamp.Unix() {
 			if err := root.Remove(path); err != nil {
 				return fmt.Errorf("failed to remove expired cache file %q: %w", path, err)
 			}
