@@ -3,28 +3,12 @@ package project
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"path/filepath"
-	"slices"
 	"strings"
-
-	"github.com/samber/lo"
-
-	"github.com/zkhvan/z/pkg/gh"
-)
-
-type ProjectType string
-
-const (
-	Local  ProjectType = "local"
-	Remote ProjectType = "remote"
 )
 
 type Project struct {
-	// Type represents how the project was discovered.
-	Type ProjectType `json:"type"`
-
 	// LocalID is the identifier of the project on the local machine.
 	//
 	// For now, it's the relative path to the project from the root directory.
@@ -46,20 +30,15 @@ type Project struct {
 //
 // TODO: Detect the proper URL in a generic way, based on the project type.
 func (p Project) URL() string {
-	id := p.RemoteID
-	if id == "" {
-		id = p.LocalID
-	}
-
-	parts := strings.Split(id, "/")
-	if len(parts) < 2 {
-		return ""
-	}
-
-	owner := parts[0]
-	repo := parts[1]
-
+	owner, repo := p.OwnerRepo()
 	return fmt.Sprintf("https://github.com/%s/%s", owner, repo)
+}
+
+func (p Project) OwnerRepo() (string, string) {
+	owner := path.Dir(p.RemoteID)
+	repo := path.Base(p.RemoteID)
+
+	return owner, repo
 }
 
 func (p Project) Compare(other Project) int {
@@ -68,62 +47,38 @@ func (p Project) Compare(other Project) int {
 
 func newProject(localID, remoteID, abs string) Project {
 	return Project{
-		Type:         Local,
 		LocalID:      localID,
 		RemoteID:     remoteID,
 		AbsolutePath: abs,
 	}
 }
 
-type ListOptions struct {
-	Local  bool
-	Remote bool
-}
+func (s *Service) Get(ctx context.Context, id string) (Project, error) {
+	var project Project
 
-// ListProjects will search for repositories using the given config and options.
-//
-// By default, it will only search for local repositories. To search for remote
-// repositories, set opts.Remote to true.
-func (s *Service) ListProjects(ctx context.Context, opts *ListOptions) ([]Project, error) {
-	if opts == nil {
-		opts = &ListOptions{}
+	parts := strings.Split(id, "/")
+
+	switch n := len(parts); {
+	case n < 2:
+		return project, fmt.Errorf("invalid ID")
+	case n == 2:
+		project.RemoteID = id
+		project.LocalID = s.toLocalID(id)
+	case 2 < n:
+		project.LocalID = id
+		project.RemoteID = s.toRemoteID(id)
 	}
 
-	remoteProjects, err := s.listRemoteProjects(ctx, opts)
-	if err != nil {
-		return nil, fmt.Errorf("error listing remote projects: %w", err)
-	}
+	project.AbsolutePath = filepath.Join(s.cfg.Root, project.LocalID)
 
-	localProjects, err := s.listLocalProjects(ctx, opts)
-	if err != nil {
-		return nil, fmt.Errorf("error listing local projects: %w", err)
-	}
-
-	projects := combineProjects(remoteProjects, localProjects)
-	return projects, nil
-}
-
-func combineProjects(remote, local []Project) []Project {
-	projects := make([]Project, 0, len(remote)+len(local))
-
-	projects = append(projects, remote...)
-	projects = append(projects, local...)
-
-	projects = lo.UniqBy(projects, func(p Project) string {
-		return p.AbsolutePath
-	})
-
-	slices.SortFunc(projects, func(a, b Project) int {
-		return a.Compare(b)
-	})
-
-	return projects
+	return project, nil
 }
 
 func (s *Service) toRemoteID(localID string) string {
 	// Convert a local ID to a remote ID.
-	// A local ID is represented as the relative path to the project from the root directory.
-	// The owner and repo can be extracted from the local ID by analyzing the last two segments of the ID.
+	// A local ID is represented as the relative path to the project from the
+	// root directory. The owner and repo can be extracted from the local ID
+	// by analyzing the last two segments of the ID.
 
 	owner := path.Base(path.Dir(localID))
 	repo := path.Base(localID)
@@ -131,6 +86,8 @@ func (s *Service) toRemoteID(localID string) string {
 	return fmt.Sprintf("%s/%s", owner, repo)
 }
 
+// TODO: iterating over remote patterns isn't the most efficient, might want
+// to make it lookup-based instead.
 func (s *Service) toLocalID(remoteID string) string {
 	parts := strings.Split(remoteID, "/")
 	if len(parts) < 2 {
@@ -146,35 +103,14 @@ func (s *Service) toLocalID(remoteID string) string {
 			continue
 		}
 
-		if pattern.Repo != nil && *pattern.Repo != repo {
+		if pattern.Repo != "*" && pattern.Repo != repo {
 			continue
 		}
 
-		if pattern.AlternatePath != nil {
-			localID = filepath.Join(*pattern.AlternatePath, localID)
-		}
+		// The alternate path might be empty, but filepath.Join will handle it
+		// gracefully.
+		localID = filepath.Join(pattern.AlternatePath, localID)
 	}
 
 	return localID
-}
-
-// CloneProject clones a project.
-func (s *Service) CloneProject(ctx context.Context, project Project) (string, error) {
-	url := project.URL()
-	if url == "" {
-		return "", fmt.Errorf("error getting project URL")
-	}
-
-	// Check if absolute path exists
-	if _, err := os.Stat(project.AbsolutePath); err == nil {
-		// TODO: confirm with the user what to do in this scenario.
-		return "", fmt.Errorf("project already exists: %s", project.AbsolutePath)
-	}
-
-	output, err := gh.Clone(ctx, url, project.AbsolutePath)
-	if err != nil {
-		return "", fmt.Errorf("error cloning project: %w", err)
-	}
-
-	return output, nil
 }

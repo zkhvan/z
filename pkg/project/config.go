@@ -3,14 +3,19 @@ package project
 import (
 	"cmp"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/oslib"
 )
 
 type Config struct {
-	MaxDepth int    `json:"max_depth"`
-	Root     string `json:"root"`
+	// MaxDepth is the maximum depth of the project tree to search for projects.
+	MaxDepth int `json:"max_depth"`
+
+	// Root is the root directory for the projects.
+	Root string `json:"root"`
 
 	// TTL is the time to live (in seconds) for the cache.
 	TTL int64 `json:"ttl"`
@@ -25,7 +30,9 @@ type Config struct {
 	// alternate path is relative to the root directory. If the alternate path
 	// ends with a "/", the repo name (without the owner) will be used
 	// instead.
-	RemotePatterns []string        `json:"remote_patterns"`
+	RemotePatterns []string `json:"remote_patterns"`
+
+	// remotePatterns is a list of parsed remote patterns.
 	remotePatterns []remotePattern `json:"-"`
 }
 
@@ -61,6 +68,19 @@ func (c Config) setDefaults() Config {
 	return c
 }
 
+// remotePattern represents a pattern with the following format:
+//
+//	owner/repo -> ./alternate-path
+//
+// If the pattern is in the format above, the AlternatePath will be set.
+type remotePattern struct {
+	original string
+
+	Owner         string
+	Repo          string
+	AlternatePath string
+}
+
 func (c Config) parseRemotePatterns() ([]remotePattern, error) {
 	patterns := make([]remotePattern, 0, len(c.RemotePatterns))
 
@@ -74,4 +94,28 @@ func (c Config) parseRemotePatterns() ([]remotePattern, error) {
 	}
 
 	return patterns, nil
+}
+
+func parseRemotePattern(pattern string) (remotePattern, error) {
+	out := remotePattern{
+		original: pattern,
+	}
+
+	// Check and parse if the pattern contains an alternate path.
+	parts := strings.Split(pattern, "->")
+	if len(parts) == 2 {
+		alternatePath := strings.TrimSpace(parts[1])
+		out.AlternatePath = filepath.Clean(alternatePath)
+	}
+
+	// Parse the owner/repo
+	parts = strings.Split(strings.TrimSpace(parts[0]), "/")
+	if len(parts) != 2 {
+		return out, fmt.Errorf("invalid pattern: %q", pattern)
+	}
+
+	out.Owner = parts[0]
+	out.Repo = parts[1]
+
+	return out, nil
 }

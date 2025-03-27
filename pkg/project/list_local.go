@@ -8,14 +8,6 @@ import (
 	"github.com/zkhvan/z/pkg/fd"
 )
 
-func newLocalProject(id, abs string) Project {
-	return Project{
-		Type:         Local,
-		LocalID:      id,
-		AbsolutePath: abs,
-	}
-}
-
 func (s *Service) listLocalProjects(ctx context.Context, opts *ListOptions) ([]Project, error) {
 	if !opts.Local {
 		return nil, nil
@@ -34,7 +26,6 @@ func (s *Service) loadLocalProjects(ctx context.Context) ([]Project, error) {
 		root        = s.cfg.Root
 	)
 
-	var projects []Project
 	rr, err := fd.Run(
 		ctx,
 		".git",
@@ -50,6 +41,7 @@ func (s *Service) loadLocalProjects(ctx context.Context) ([]Project, error) {
 		return nil, err
 	}
 
+	var projects []Project
 	for _, r := range rr {
 		abs := filepath.Dir(filepath.Clean(r))
 
@@ -58,7 +50,11 @@ func (s *Service) loadLocalProjects(ctx context.Context) ([]Project, error) {
 			return nil, fmt.Errorf("error convert absolute path to relative path %q: %w", r, err)
 		}
 
-		project := newLocalProject(id, abs)
+		project := newProject(
+			id,
+			s.toRemoteID(id),
+			abs,
+		)
 		projects = append(projects, project)
 	}
 

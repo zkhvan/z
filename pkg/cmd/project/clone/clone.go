@@ -60,7 +60,7 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	project, err := service.GetRemoteProject(ctx, opts.ID)
+	project, err := service.Get(ctx, opts.ID)
 	if err != nil {
 		return err
 	}
