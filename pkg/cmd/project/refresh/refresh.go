@@ -33,7 +33,7 @@ func NewCmdRefresh(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *co
 
 			This command will force a refresh of the remote projects cache.
 		`),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return opts.Run(cmd.Context())
 		},
 	}

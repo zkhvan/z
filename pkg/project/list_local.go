@@ -29,7 +29,7 @@ func (s *Service) loadLocalProjects(ctx context.Context) ([]Project, error) {
 	rr, err := fd.Run(
 		ctx,
 		".git",
-		&fd.FdOptions{
+		&fd.Options{
 			Glob:        &glob,
 			Hidden:      &hidden,
 			MaxDepth:    &maxDepth,

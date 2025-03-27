@@ -56,7 +56,7 @@ func NewCmdList(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobra
 	return cmd
 }
 
-func (opts *Options) Complete(cmd *cobra.Command, args []string) error {
+func (opts *Options) Complete(cmd *cobra.Command, _ []string) error {
 	remoteChanged := cmd.Flags().Changed("remote")
 	localChanged := cmd.Flags().Changed("local")
 

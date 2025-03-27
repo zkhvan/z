@@ -65,16 +65,14 @@ func SetupPluginCompletion(cmd *cobra.Command, args []string) {
 
 // registerPluginCommand allows adding Cobra command to the command tree or extracting them for usage in
 // e.g. the help function or for registering the completion function
-func registerPluginCommands(z *cobra.Command, list bool) (cmds []*cobra.Command) {
-	userDefinedCommands := []*cobra.Command{}
-
+func registerPluginCommands(z *cobra.Command, list bool) {
 	streams := iolib.IOStreams{
 		In:     &bytes.Buffer{},
 		Out:    io.Discard,
 		ErrOut: io.Discard,
 	}
 
-	o := &PluginListOptions{IOStreams: streams}
+	o := &ListOptions{IOStreams: streams}
 	o.Complete(z)
 	plugins, _ := o.ListPlugins()
 
@@ -116,10 +114,8 @@ func registerPluginCommands(z *cobra.Command, list bool) (cmds []*cobra.Command)
 				// Allow plugins to provide their own completion choices
 				ValidArgsFunction: pluginCompletion,
 				// A Run is required for it to be a valid command
-				Run: func(cmd *cobra.Command, args []string) {},
+				Run: func(_ *cobra.Command, _ []string) {},
 			}
-			// Add the plugin command to the list of user defined commands
-			userDefinedCommands = append(userDefinedCommands, cmd)
 
 			if list {
 				parentCmd.AddCommand(cmd)
@@ -127,8 +123,6 @@ func registerPluginCommands(z *cobra.Command, list bool) (cmds []*cobra.Command)
 			}
 		}
 	}
-
-	return userDefinedCommands
 }
 
 // pluginCompletion deals with shell completion beyond the plugin name, it allows to complete

@@ -7,7 +7,7 @@ import (
 	"os/exec"
 )
 
-type FdOptions struct {
+type Options struct {
 	Glob        *bool
 	Hidden      *bool
 	MaxDepth    *int
@@ -15,9 +15,9 @@ type FdOptions struct {
 	Path        *string
 }
 
-func Run(ctx context.Context, pattern string, opts *FdOptions) ([]string, error) {
+func Run(ctx context.Context, pattern string, opts *Options) ([]string, error) {
 	if opts == nil {
-		opts = &FdOptions{}
+		opts = &Options{}
 	}
 
 	cmd := exec.CommandContext(

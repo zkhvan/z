@@ -28,7 +28,7 @@ func (s *Service) listRemoteProjects(ctx context.Context, opts *ListOptions) ([]
 			}
 
 			ttl := time.Now().Add(time.Duration(s.cfg.TTL) * time.Second)
-			if err := fcache.SaveMany(s.cacheDir, "projects.remote", projects, ttl); err != nil {
+			if err = fcache.SaveMany(s.cacheDir, "projects.remote", projects, ttl); err != nil {
 				return nil, fmt.Errorf("error saving remote projects to cache: %w", err)
 			}
 
