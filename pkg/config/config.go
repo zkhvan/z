@@ -106,7 +106,7 @@ func (p *provider) Get(path string) any {
 	return p.k.Get(path)
 }
 
-func (p *provider) Unmarshal(key string, v interface{}) error {
+func (p *provider) Unmarshal(key string, v any) error {
 	return p.k.UnmarshalWithConf(key, v, koanf.UnmarshalConf{
 		Tag: "json",
 	})

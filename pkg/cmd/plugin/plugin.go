@@ -9,12 +9,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
 	"github.com/zkhvan/z/pkg/iolib"
 )
 
-var (
-	ValidPluginFilenamePrefixes = []string{"z"}
-)
+var ValidPluginFilenamePrefixes = []string{"z"}
 
 // pathVerifier receives a path and determines if it is valid or not
 type PathVerifier interface {
@@ -82,7 +81,7 @@ func isExecutable(fullPath string) (bool, error) {
 		return false, nil
 	}
 
-	if m := info.Mode(); !m.IsDir() && m&0111 != 0 {
+	if m := info.Mode(); !m.IsDir() && m&0o111 != 0 {
 		return true, nil
 	}
 

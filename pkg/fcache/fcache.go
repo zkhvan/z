@@ -12,9 +12,7 @@ import (
 	"github.com/zkhvan/z/pkg/oslib"
 )
 
-var (
-	ErrNotFound = errors.New("cache not found")
-)
+var ErrNotFound = errors.New("cache not found")
 
 func NormalizeCacheDir(cacheDir string) string {
 	if cacheDir != "" {
@@ -29,7 +27,7 @@ func NormalizeCacheDir(cacheDir string) string {
 	return filepath.Join(cacheDir, "z")
 }
 
-func LoadMany[T any](dir string, key string) ([]T, error) {
+func LoadMany[T any](dir, key string) ([]T, error) {
 	now := time.Now().Unix()
 
 	_, err := os.Stat(dir)
@@ -97,8 +95,8 @@ func LoadMany[T any](dir string, key string) ([]T, error) {
 	return data, nil
 }
 
-func SaveMany[T any](dir string, key string, data []T, expiry time.Time) error {
-	if err := os.MkdirAll(dir, 0755); err != nil {
+func SaveMany[T any](dir, key string, data []T, expiry time.Time) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -108,7 +106,7 @@ func SaveMany[T any](dir string, key string, data []T, expiry time.Time) error {
 	}
 
 	filename := fmt.Sprintf("%s-%d.json", key, expiry.Unix())
-	file, err := root.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	file, err := root.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return err
 	}

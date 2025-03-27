@@ -11,9 +11,7 @@ import (
 	"strings"
 )
 
-var (
-	ErrCancelled = errors.New("cancelled")
-)
+var ErrCancelled = errors.New("cancelled")
 
 func One[T any](
 	ctx context.Context,

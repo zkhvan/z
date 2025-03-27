@@ -59,5 +59,4 @@ func (s *Service) loadLocalProjects(ctx context.Context) ([]Project, error) {
 	}
 
 	return projects, nil
-
 }
