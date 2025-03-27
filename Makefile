@@ -44,3 +44,19 @@ test:
 .PHONY: build
 build:
 	CGO_ENABLED=0 go build -o=${BINARY_NAME} ${MAIN_PACKAGE_PATH}
+
+# ============================================================================
+# CI
+#
+# These targets are used to run the tests and build the application in the CI.
+# ============================================================================
+
+## ci-test: run tests with coverage for CI
+.PHONY: ci-test
+ci-test:
+	./hack/ci/test.sh
+
+## ci-build: verify build for CI
+.PHONY: ci-build
+ci-build:
+	./hack/ci/build.sh
