@@ -4,17 +4,36 @@ import (
 	"fmt"
 
 	"github.com/zkhvan/z/pkg/cmdutil"
+	"github.com/zkhvan/z/pkg/exec"
 	"github.com/zkhvan/z/pkg/fcache"
+	"github.com/zkhvan/z/pkg/gh"
 )
 
+var defaultExecutor exec.Interface = exec.New()
+
 type Service struct {
-	cfg Config
+	cfg      Config
+	executor exec.Interface
+	gh       *gh.Client
 
 	refreshCache bool
 	cacheDir     string
 }
 
 type ServiceOption func(*Service)
+
+func WithExecutor(executor exec.Interface) ServiceOption {
+	return func(s *Service) {
+		s.executor = executor
+		s.gh.SetExecutor(executor)
+	}
+}
+
+func WithGHClient(client *gh.Client) ServiceOption {
+	return func(s *Service) {
+		s.gh = client
+	}
+}
 
 func WithRefreshCache(refreshCache bool) ServiceOption {
 	return func(s *Service) {
@@ -34,7 +53,11 @@ func NewService(config cmdutil.Config, opts ...ServiceOption) (*Service, error) 
 		return nil, fmt.Errorf("error creating config: %w", err)
 	}
 
-	s := &Service{cfg: cfg}
+	s := &Service{
+		cfg:      cfg,
+		executor: defaultExecutor,
+		gh:       gh.NewClient(),
+	}
 
 	for _, opt := range opts {
 		opt(s)

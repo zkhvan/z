@@ -15,6 +15,8 @@ import (
 	"github.com/zkhvan/z/pkg/cmdutil"
 )
 
+var ErrNotFound = errors.New("key not found")
+
 var _ cmdutil.Config = (*provider)(nil)
 
 type provider struct {
@@ -107,25 +109,45 @@ func (p *provider) Get(path string) any {
 }
 
 func (p *provider) Unmarshal(key string, v any) error {
+	if !p.k.Exists(key) {
+		return ErrNotFound
+	}
+
 	return p.k.UnmarshalWithConf(key, v, koanf.UnmarshalConf{
 		Tag: "json",
 	})
 }
 
 func New() (cmdutil.Config, error) {
+	return NewWithDir("")
+}
+
+func NewWithDir(dir string) (cmdutil.Config, error) {
 	k := koanf.New(".")
 
-	dir, err := configDir()
-	if err != nil {
-		return nil, err
+	if dir == "" {
+		configDir, err := configDir()
+		if err != nil {
+			return nil, err
+		}
+		dir = configDir
 	}
 
 	path := filepath.Join(dir, "config.yaml")
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return &provider{k: k}, nil
+	}
+
 	if err := k.Load(file.Provider(path), yaml.Parser()); err != nil {
 		return nil, err
 	}
 
 	return &provider{k: k}, nil
+}
+
+func IsNotFound(err error) bool {
+	return errors.Is(err, ErrNotFound)
 }
 
 // userConfigDir returns the default root directory to use for user-specific

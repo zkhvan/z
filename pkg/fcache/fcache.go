@@ -126,7 +126,6 @@ func SaveMany[T any](dir, key string, data []T, expiry time.Time) error {
 func cleanupOldCacheFiles(root *os.Root, key string, latestTimestamp time.Time) error {
 	pattern := fmt.Sprintf("%s-%%d.json", key)
 	err := fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
-		fmt.Println(d.Name())
 		if err != nil {
 			return err
 		}

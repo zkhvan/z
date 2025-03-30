@@ -93,7 +93,7 @@ func (s *Service) loadRemoteRepos(ctx context.Context, pattern remotePattern) ([
 		}, nil
 	}
 
-	repos, err := gh.ListRepos(ctx, &gh.RepoListOptions{Owner: pattern.Owner})
+	repos, err := s.gh.ListRepos(ctx, &gh.RepoListOptions{Owner: pattern.Owner})
 	if err != nil {
 		return nil, err
 	}

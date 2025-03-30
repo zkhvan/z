@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/zkhvan/z/pkg/cmdutil"
+	"github.com/zkhvan/z/pkg/config"
 	"github.com/zkhvan/z/pkg/oslib"
 )
 
@@ -39,7 +40,9 @@ type Config struct {
 func NewConfig(cfg cmdutil.Config) (Config, error) {
 	var c Config
 	if err := cfg.Unmarshal("projects", &c); err != nil {
-		return c, fmt.Errorf("error unmarshalling project config: %w", err)
+		if !config.IsNotFound(err) {
+			return c, fmt.Errorf("error unmarshalling project config: %w", err)
+		}
 	}
 
 	c = c.setDefaults()
