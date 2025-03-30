@@ -113,11 +113,18 @@ func (p *provider) Unmarshal(key string, v any) error {
 }
 
 func New() (cmdutil.Config, error) {
+	return NewWithDir("")
+}
+
+func NewWithDir(dir string) (cmdutil.Config, error) {
 	k := koanf.New(".")
 
-	dir, err := configDir()
-	if err != nil {
-		return nil, err
+	if dir == "" {
+		configDir, err := configDir()
+		if err != nil {
+			return nil, err
+		}
+		dir = configDir
 	}
 
 	path := filepath.Join(dir, "config.yaml")

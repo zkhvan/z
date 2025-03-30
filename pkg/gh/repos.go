@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os/exec"
 )
 
 type Repo struct {
@@ -22,7 +21,7 @@ type RepoListOptions struct {
 	Owner string
 }
 
-func ListRepos(ctx context.Context, opts *RepoListOptions) ([]*Repo, error) {
+func (c *Client) ListRepos(ctx context.Context, opts *RepoListOptions) ([]*Repo, error) {
 	if opts == nil {
 		opts = &RepoListOptions{}
 	}
@@ -31,8 +30,7 @@ func ListRepos(ctx context.Context, opts *RepoListOptions) ([]*Repo, error) {
 		return nil, errors.New("owner is required")
 	}
 
-	// #nosec G204
-	cmd := exec.CommandContext(
+	cmd := c.executor.CommandContext(
 		ctx,
 		"gh", "repo", "list",
 		opts.Owner, "--json", "owner,name",

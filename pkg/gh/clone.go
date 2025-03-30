@@ -5,10 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 )
 
-func Clone(ctx context.Context, url, path string) (string, error) {
+func (c *Client) Clone(ctx context.Context, url, path string) (string, error) {
 	if url == "" {
 		return "", errors.New("url is required")
 	}
@@ -17,7 +16,7 @@ func Clone(ctx context.Context, url, path string) (string, error) {
 		return "", errors.New("path is required")
 	}
 
-	cmd := exec.CommandContext(
+	cmd := c.executor.CommandContext(
 		ctx,
 		"gh", "repo", "clone",
 		url, path,
