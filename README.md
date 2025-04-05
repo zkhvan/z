@@ -4,6 +4,10 @@
 
 A CLI designed for productivity, written in Go.
 
+## Compatibility
+
+This project is only compatible with MacOS and zsh.
+
 ## Projects
 
 A project is a structured representation of a Git repository. It maps a remote
