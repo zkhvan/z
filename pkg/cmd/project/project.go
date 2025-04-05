@@ -8,6 +8,7 @@ import (
 	"github.com/zkhvan/z/pkg/cmd/project/internal"
 	listCmd "github.com/zkhvan/z/pkg/cmd/project/list"
 	refreshCmd "github.com/zkhvan/z/pkg/cmd/project/refresh"
+	selectCmd "github.com/zkhvan/z/pkg/cmd/project/select"
 	"github.com/zkhvan/z/pkg/cmdutil"
 )
 
@@ -27,6 +28,7 @@ func NewCmdProject(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(listCmd.NewCmdList(f, projectOpts))
 	cmd.AddCommand(refreshCmd.NewCmdRefresh(f, projectOpts))
 	cmd.AddCommand(cloneCmd.NewCmdClone(f, projectOpts))
+	cmd.AddCommand(selectCmd.NewCmdSelect(f, projectOpts))
 
 	return cmd
 }
