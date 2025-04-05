@@ -1,0 +1,1 @@
+../pkg/cmd/shell/zsh/z.zsh

@@ -1,7 +1,8 @@
-package list
+package selectcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/MakeNowJust/heredoc/v2"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/zkhvan/z/pkg/cmd/project/internal"
 	"github.com/zkhvan/z/pkg/cmdutil"
+	"github.com/zkhvan/z/pkg/fzf"
 	"github.com/zkhvan/z/pkg/iolib"
 	"github.com/zkhvan/z/pkg/project"
 )
@@ -18,13 +20,12 @@ type Options struct {
 	io     *iolib.IOStreams
 	config cmdutil.Config
 
-	FullPath     bool
 	RefreshCache bool
 	Remote       bool
 	Local        bool
 }
 
-func NewCmdList(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobra.Command {
+func NewCmdSelect(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobra.Command {
 	opts := &Options{
 		ProjectOptions: projectOpts,
 		io:             f.IOStreams,
@@ -32,13 +33,11 @@ func NewCmdList(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobra
 	}
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List projects",
+		Use:   "select",
+		Short: "Select a project interactively",
 		Long: heredoc.Doc(`
-			List the projects defined in the config file.
-
-			Local projects are found by searching for '.git' directories.
-			Remote projects are found by searching for repositories on GitHub.
+			Interactively select a project from the list of known projects using a fuzzy finder.
+			Outputs the selected project's absolute path to stdout.
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Complete(cmd, args); err != nil {
@@ -48,7 +47,6 @@ func NewCmdList(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobra
 		},
 	}
 
-	cmd.Flags().BoolVar(&opts.FullPath, "full-path", false, "Output the full path")
 	cmd.Flags().BoolVar(&opts.RefreshCache, "refresh-cache", false, "Refresh the cache")
 	cmd.Flags().BoolVar(&opts.Remote, "remote", true, "List remote projects")
 	cmd.Flags().BoolVar(&opts.Local, "local", true, "List local projects")
@@ -56,6 +54,7 @@ func NewCmdList(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobra
 	return cmd
 }
 
+// Complete handles the logic for default flags when filtering by type.
 func (opts *Options) Complete(cmd *cobra.Command, _ []string) error {
 	remoteChanged := cmd.Flags().Changed("remote")
 	localChanged := cmd.Flags().Changed("local")
@@ -66,12 +65,10 @@ func (opts *Options) Complete(cmd *cobra.Command, _ []string) error {
 		if !remoteChanged {
 			opts.Remote = false
 		}
-
 		if !localChanged {
 			opts.Local = false
 		}
 	}
-
 	return nil
 }
 
@@ -93,15 +90,22 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	for _, result := range results {
-		path := result.LocalID
-
-		if opts.FullPath {
-			path = result.AbsolutePath
-		}
-
-		fmt.Fprintln(opts.io.Out, path)
+	proj, err := fzf.One(
+		ctx,
+		results,
+		projectByPath,
+	)
+	if errors.Is(err, fzf.ErrCanceled) {
+		return nil
+	}
+	if err != nil {
+		return err
 	}
 
+	fmt.Fprint(opts.io.Out, proj.AbsolutePath)
 	return nil
+}
+
+func projectByPath(p project.Project, _ int) string {
+	return p.LocalID
 }
