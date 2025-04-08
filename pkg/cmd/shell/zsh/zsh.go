@@ -2,12 +2,13 @@ package zsh
 
 import (
 	"context"
-	_ "embed"
 
 	"github.com/spf13/cobra"
 
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/iolib"
+
+	_ "embed"
 )
 
 //go:embed z.zsh
@@ -25,10 +26,7 @@ func NewCmdZsh(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "zsh",
 		Short: "A zsh shell integration wrapper for z",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := opts.Complete(cmd, args); err != nil {
-				return err
-			}
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return opts.Run(cmd.Context())
 		},
 	}
@@ -36,11 +34,7 @@ func NewCmdZsh(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func (opts *Options) Complete(cmd *cobra.Command, args []string) error {
-	return nil
-}
-
-func (opts *Options) Run(ctx context.Context) error {
+func (opts *Options) Run(_ context.Context) error {
 	_, err := opts.io.Out.Write(zshScript)
 	if err != nil {
 		return err
