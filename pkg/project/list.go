@@ -32,23 +32,75 @@ func (s *Service) ListProjects(ctx context.Context, opts *ListOptions) ([]Projec
 		return nil, fmt.Errorf("error listing local projects: %w", err)
 	}
 
-	projects := combineProjects(remoteProjects, localProjects)
+	projects, err := combineProjects(remoteProjects, localProjects)
+	if err != nil {
+		return nil, fmt.Errorf("error combining projects: %w", err)
+	}
+
 	return projects, nil
 }
 
-func combineProjects(remote, local []Project) []Project {
-	projects := make([]Project, 0, len(remote)+len(local))
+func combineProjects(remote, local []Project) ([]Project, error) {
+	projects := make(map[string]Project, 0)
 
-	projects = append(projects, remote...)
-	projects = append(projects, local...)
+	var err error
+	for _, p := range remote {
+		if _, ok := projects[p.AbsolutePath]; ok {
+			p, err = combineProject(projects[p.AbsolutePath], p)
+			if err != nil {
+				return nil, fmt.Errorf("error combining projects: %w", err)
+			}
+		}
 
-	projects = lo.UniqBy(projects, func(p Project) string {
-		return p.AbsolutePath
-	})
+		projects[p.AbsolutePath] = p
+	}
 
-	slices.SortFunc(projects, func(a, b Project) int {
+	for _, p := range local {
+		if _, ok := projects[p.AbsolutePath]; ok {
+			p, err = combineProject(projects[p.AbsolutePath], p)
+			if err != nil {
+				return nil, fmt.Errorf("error combining projects: %w", err)
+			}
+		}
+
+		projects[p.AbsolutePath] = p
+	}
+
+	result := lo.Values(projects)
+	slices.SortFunc(result, func(a, b Project) int {
 		return a.Compare(b)
 	})
+	return result, nil
+}
 
-	return projects
+func combineProject(a, b Project) (Project, error) {
+	if a.LocalID != b.LocalID {
+		return Project{}, fmt.Errorf("local id mismatch: %s != %s", a.LocalID, b.LocalID)
+	}
+
+	if a.RemoteID != b.RemoteID {
+		return Project{}, fmt.Errorf("remote id mismatch: %s != %s", a.RemoteID, b.RemoteID)
+	}
+
+	if a.AbsolutePath != b.AbsolutePath {
+		return Project{}, fmt.Errorf("absolute path mismatch: %s != %s", a.AbsolutePath, b.AbsolutePath)
+	}
+
+	if a.Source == SourceTypeUnknown || b.Source == SourceTypeUnknown {
+		return Project{}, fmt.Errorf("source unknown")
+	}
+
+	if a.Source == b.Source {
+		return a, nil
+	}
+
+	p := newProject(
+		a.LocalID,
+		a.RemoteID,
+		a.AbsolutePath,
+	)
+
+	p.Source = SourceTypeSynced
+
+	return p, nil
 }

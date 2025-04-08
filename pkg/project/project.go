@@ -8,6 +8,28 @@ import (
 	"strings"
 )
 
+type SourceType int
+
+const (
+	SourceTypeUnknown SourceType = iota
+	SourceTypeLocal
+	SourceTypeRemote
+	SourceTypeSynced
+)
+
+func (s SourceType) String() string {
+	switch s {
+	case SourceTypeLocal:
+		return "[L]"
+	case SourceTypeRemote:
+		return "[R]"
+	case SourceTypeSynced:
+		return "[S]"
+	default:
+		return "[?]"
+	}
+}
+
 type Project struct {
 	// LocalID is the identifier of the project on the local machine.
 	//
@@ -21,6 +43,9 @@ type Project struct {
 
 	// AbsolutePath is the absolute path to the project.
 	AbsolutePath string `json:"absolute_path"`
+
+	// Source indicates how the project was discovered.
+	Source SourceType `json:"source_type"`
 }
 
 // URL returns the URL of the project.

@@ -3,6 +3,7 @@ module github.com/zkhvan/z
 go 1.24.0
 
 require (
+	github.com/atotto/clipboard v0.1.4
 	github.com/google/go-cmp v0.7.0
 	github.com/knadh/koanf/parsers/yaml v0.1.0
 	github.com/knadh/koanf/providers/file v1.1.2

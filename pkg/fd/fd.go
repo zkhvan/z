@@ -13,6 +13,7 @@ type Options struct {
 	MaxDepth    *int
 	NoIgnoreVCS *bool
 	Path        *string
+	Follow      *bool
 }
 
 func Run(ctx context.Context, pattern string, opts *Options) ([]string, error) {
@@ -40,6 +41,10 @@ func Run(ctx context.Context, pattern string, opts *Options) ([]string, error) {
 
 	if opts.NoIgnoreVCS != nil && *opts.NoIgnoreVCS {
 		cmd.Args = append(cmd.Args, "--no-ignore-vcs")
+	}
+
+	if opts.Follow != nil && *opts.Follow {
+		cmd.Args = append(cmd.Args, "--follow")
 	}
 
 	// If a path is specified, it is required to be after the pattern since

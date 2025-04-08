@@ -35,7 +35,7 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	session, err := fzf.One(ctx, sessions, sessionByName)
+	session, err := fzf.One(ctx, sessions, fzf.WithIterator(sessionByName))
 	if errors.Is(err, fzf.ErrCanceled) {
 		return nil
 	}
