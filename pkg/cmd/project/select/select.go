@@ -103,7 +103,7 @@ func (opts *Options) Run(ctx context.Context) error {
 		fzf.WithIterator(projectByPath),
 		fzf.WithBinding("ctrl-y", func(p project.Project) error {
 			shouldCD = false
-			if err := clipboard.Init(); err != nil {
+			if err = clipboard.Init(); err != nil {
 				return err
 			}
 
@@ -122,7 +122,7 @@ func (opts *Options) Run(ctx context.Context) error {
 				return fmt.Errorf("unsupported project source: %s", p.Source)
 			}
 
-			_, err := gh.NewClient().RepoView(ctx, opts)
+			_, err = gh.NewClient().RepoView(ctx, opts)
 			return err
 		}),
 	}
