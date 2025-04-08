@@ -51,7 +51,7 @@ func (opts *Options) Run(ctx context.Context) error {
 	proj, err := fzf.One(
 		ctx,
 		projects,
-		projectByPath,
+		fzf.WithIterator(projectByPath),
 	)
 	if errors.Is(err, fzf.ErrCanceled) {
 		return nil

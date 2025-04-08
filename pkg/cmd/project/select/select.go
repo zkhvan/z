@@ -7,10 +7,12 @@ import (
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
+	"golang.design/x/clipboard"
 
 	"github.com/zkhvan/z/pkg/cmd/project/internal"
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/fzf"
+	"github.com/zkhvan/z/pkg/gh"
 	"github.com/zkhvan/z/pkg/iolib"
 	"github.com/zkhvan/z/pkg/project"
 )
@@ -36,8 +38,9 @@ func NewCmdSelect(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cob
 		Use:   "select",
 		Short: "Select a project interactively",
 		Long: heredoc.Doc(`
-			Interactively select a project from the list of known projects using a fuzzy finder.
-			Outputs the selected project's absolute path to stdout.
+			Interactively select a project from the list of known projects
+			using a fuzzy finder. Outputs the selected project's absolute path
+			to stdout.
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Complete(cmd, args); err != nil {
@@ -90,10 +93,26 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
+	shouldCD := true
 	proj, err := fzf.One(
 		ctx,
 		results,
-		projectByPath,
+		fzf.WithIterator(projectByPath),
+		fzf.WithBinding("ctrl-y", func(p project.Project) error {
+			shouldCD = false
+			if err := clipboard.Init(); err != nil {
+				return err
+			}
+
+			clipboard.Write(clipboard.FmtText, []byte(p.LocalID))
+			return nil
+		}),
+		fzf.WithBinding("alt-enter", func(p project.Project) error {
+			shouldCD = false
+			_, err := gh.NewClient().RepoView(ctx, p.RemoteID, &gh.RepoViewOptions{Web: true})
+			return err
+		}),
+		fzf.WithHeader[project.Project]("ENTER: Change directory | CTRL-Y: Yank | ALT-ENTER: View in browser"),
 	)
 	if errors.Is(err, fzf.ErrCanceled) {
 		return nil
@@ -102,7 +121,9 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Fprint(opts.io.Out, proj.AbsolutePath)
+	if shouldCD {
+		fmt.Fprint(opts.io.Out, "cd "+proj.AbsolutePath)
+	}
 	return nil
 }
 

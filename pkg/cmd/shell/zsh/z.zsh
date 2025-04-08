@@ -11,18 +11,15 @@ z() {
 
     if [[ $exit_code -ne 0 ]]; then
       echo "Error: 'z project select' failed with exit code $exit_code" >&2
-      echo "$output" >&2
+      print -r "$output" >&2
       return $exit_code
     fi
 
-    if [[ -d "${output}" ]]; then
-      cd "${output}"
+    print -r "${output}"
+    if [[ "${output##*$'\n'}" == "cd "* ]]; then
+      builtin cd -- "${output##*$'\n'#cd }"
       return 0
-    else
-      echo "${output}"
-      return 1
     fi
-
   else
     command z "$@"
     return $?
