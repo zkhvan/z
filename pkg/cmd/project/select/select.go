@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
@@ -131,8 +132,16 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
+	if _, err := os.Lstat(proj.AbsolutePath); os.IsNotExist(err) {
+		output, err := service.CloneProject(ctx, proj)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(opts.io.Out, output)
+	}
+
 	if shouldCD {
-		fmt.Fprint(opts.io.Out, "cd "+proj.AbsolutePath)
+		fmt.Fprintf(opts.io.Out, "cd %s\n", proj.AbsolutePath)
 	}
 	return nil
 }
