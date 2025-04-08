@@ -88,7 +88,7 @@ test-report: test
 ## build: build the application
 .PHONY: build
 build:
-	go build \
+	CGO_ENABLED=0 go build \
 		-ldflags "-w -X $(VERSION_PACKAGE).Version=$(VERSION) -X $(VERSION_PACKAGE).Date=$$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
 		-o=${BINARY_NAME} \
 		${MAIN_PACKAGE_PATH}

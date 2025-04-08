@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/MakeNowJust/heredoc/v2"
+	"github.com/atotto/clipboard"
 	"github.com/spf13/cobra"
-	"golang.design/x/clipboard"
 
 	"github.com/zkhvan/z/pkg/cmd/project/internal"
 	"github.com/zkhvan/z/pkg/cmdutil"
@@ -103,12 +103,8 @@ func (opts *Options) Run(ctx context.Context) error {
 		fzf.WithIterator(projectByPath),
 		fzf.WithBinding("ctrl-y", func(p project.Project) error {
 			shouldCD = false
-			if err = clipboard.Init(); err != nil {
-				return err
-			}
 
-			clipboard.Write(clipboard.FmtText, []byte(p.AbsolutePath))
-			return nil
+			return clipboard.WriteAll(p.AbsolutePath)
 		}),
 		fzf.WithBinding("alt-enter", func(p project.Project) error {
 			shouldCD = false
