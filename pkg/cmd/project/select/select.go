@@ -114,11 +114,13 @@ func (opts *Options) Run(ctx context.Context) error {
 			shouldCD = false
 
 			opts := &gh.RepoViewOptions{Web: true}
-			if p.Source == project.SourceTypeRemote || p.Source == project.SourceTypeSynced {
+
+			switch p.Source {
+			case project.SourceTypeRemote, project.SourceTypeSynced:
 				opts.RepositoryID = p.RemoteID
-			} else if p.Source == project.SourceTypeLocal {
+			case project.SourceTypeLocal:
 				opts.WorkingDirectory = p.AbsolutePath
-			} else {
+			default:
 				return fmt.Errorf("unsupported project source: %s", p.Source)
 			}
 
