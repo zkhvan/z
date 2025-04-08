@@ -109,7 +109,17 @@ func (opts *Options) Run(ctx context.Context) error {
 		}),
 		fzf.WithBinding("alt-enter", func(p project.Project) error {
 			shouldCD = false
-			_, err := gh.NewClient().RepoView(ctx, p.RemoteID, &gh.RepoViewOptions{Web: true})
+
+			opts := &gh.RepoViewOptions{Web: true}
+			if p.Source == project.SourceTypeRemote || p.Source == project.SourceTypeSynced {
+				opts.RepositoryID = p.RemoteID
+			} else if p.Source == project.SourceTypeLocal {
+				opts.WorkingDirectory = p.AbsolutePath
+			} else {
+				return fmt.Errorf("unsupported project source: %s", p.Source)
+			}
+
+			_, err := gh.NewClient().RepoView(ctx, opts)
 			return err
 		}),
 		fzf.WithHeader[project.Project]("ENTER: Change directory | CTRL-Y: Yank | ALT-ENTER: View in browser"),

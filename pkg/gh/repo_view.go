@@ -8,19 +8,22 @@ import (
 )
 
 type RepoViewOptions struct {
-	Web bool
+	WorkingDirectory string
+	RepositoryID     string
+	Web              bool
 }
 
-func (c *Client) RepoView(ctx context.Context, id string, opts *RepoViewOptions) (string, error) {
+func (c *Client) RepoView(ctx context.Context, opts *RepoViewOptions) (string, error) {
 	if opts == nil {
 		opts = &RepoViewOptions{}
 	}
 
-	if id == "" {
-		return "", errors.New("id is required")
+	if opts.RepositoryID == "" && opts.WorkingDirectory == "" {
+		// At least one is required in order to determine the repository
+		return "", errors.New("repository ID or working directory is required")
 	}
 
-	args := []string{"repo", "view", id}
+	args := []string{"repo", "view", opts.RepositoryID}
 	if opts.Web {
 		args = append(args, "--web")
 	}
@@ -30,6 +33,10 @@ func (c *Client) RepoView(ctx context.Context, id string, opts *RepoViewOptions)
 		"gh",
 		args...,
 	)
+
+	if opts.WorkingDirectory != "" {
+		cmd.SetDir(opts.WorkingDirectory)
+	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
