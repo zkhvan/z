@@ -128,5 +128,5 @@ func (opts *Options) Run(ctx context.Context) error {
 }
 
 func projectByPath(p project.Project, _ int) string {
-	return p.LocalID
+	return fmt.Sprintf("%s %s", p.Source, p.LocalID)
 }

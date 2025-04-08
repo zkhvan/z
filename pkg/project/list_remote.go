@@ -74,6 +74,7 @@ func (s *Service) loadRemoteProjects(ctx context.Context) ([]Project, error) {
 				r.String(),
 				filepath.Join(root, localID),
 			)
+			project.Source = SourceTypeRemote
 
 			projects = append(projects, project)
 		}

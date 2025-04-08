@@ -69,6 +69,7 @@ func TestList(t *testing.T) {
 					LocalID:      "owner/repo",
 					RemoteID:     "owner/repo",
 					AbsolutePath: filepath.Join("$PROJECTSDIR", "owner", "repo"),
+					Source:       project.SourceTypeLocal,
 				},
 			},
 		},
@@ -94,6 +95,7 @@ func TestList(t *testing.T) {
 					LocalID:      "owner/repo",
 					RemoteID:     "owner/repo",
 					AbsolutePath: filepath.Join("$PROJECTSDIR", "owner", "repo"),
+					Source:       project.SourceTypeRemote,
 				},
 			},
 		},
@@ -121,11 +123,48 @@ func TestList(t *testing.T) {
 					LocalID:      "owner/local",
 					RemoteID:     "owner/local",
 					AbsolutePath: filepath.Join("$PROJECTSDIR", "owner", "local"),
+					Source:       project.SourceTypeLocal,
 				},
 				{
 					LocalID:      "owner/remote",
 					RemoteID:     "owner/remote",
 					AbsolutePath: filepath.Join("$PROJECTSDIR", "owner", "remote"),
+					Source:       project.SourceTypeRemote,
+				},
+			},
+		},
+		"local and remote projects should be combined": {
+			cfg: heredoc.Doc(`
+				projects:
+				  root: $PROJECTSDIR
+				  remote_patterns:
+				    - owner/*
+			`),
+			opts: &project.ListOptions{Local: true, Remote: true},
+			local: []string{
+				"owner/local",
+				"owner/synced",
+			},
+			remote: map[string][]remoteRepo{
+				"owner": {
+					{
+						owner: "owner",
+						repo:  "synced",
+					},
+				},
+			},
+			expectedProjects: []project.Project{
+				{
+					LocalID:      "owner/local",
+					RemoteID:     "owner/local",
+					AbsolutePath: filepath.Join("$PROJECTSDIR", "owner", "local"),
+					Source:       project.SourceTypeLocal,
+				},
+				{
+					LocalID:      "owner/synced",
+					RemoteID:     "owner/synced",
+					AbsolutePath: filepath.Join("$PROJECTSDIR", "owner", "synced"),
+					Source:       project.SourceTypeSynced,
 				},
 			},
 		},

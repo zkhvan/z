@@ -55,6 +55,7 @@ func (s *Service) loadLocalProjects(ctx context.Context) ([]Project, error) {
 			s.toRemoteID(id),
 			abs,
 		)
+		project.Source = SourceTypeLocal
 		projects = append(projects, project)
 	}
 

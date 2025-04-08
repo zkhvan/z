@@ -100,7 +100,7 @@ func (opts *Options) Run(ctx context.Context) error {
 			path = result.AbsolutePath
 		}
 
-		fmt.Fprintln(opts.io.Out, path)
+		fmt.Fprintf(opts.io.Out, "%s %s\n", result.Source, path)
 	}
 
 	return nil
