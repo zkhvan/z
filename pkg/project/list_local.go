@@ -23,6 +23,7 @@ func (s *Service) loadLocalProjects(ctx context.Context) ([]Project, error) {
 		hidden      = true
 		maxDepth    = s.cfg.MaxDepth
 		noIgnoreVCS = true
+		follow      = true
 		root        = s.cfg.Root
 	)
 
@@ -35,6 +36,7 @@ func (s *Service) loadLocalProjects(ctx context.Context) ([]Project, error) {
 			MaxDepth:    &maxDepth,
 			NoIgnoreVCS: &noIgnoreVCS,
 			Path:        &root,
+			Follow:      &follow,
 		},
 	)
 	if err != nil {
