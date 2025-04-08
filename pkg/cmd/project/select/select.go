@@ -129,11 +129,13 @@ func (opts *Options) Run(ctx context.Context) error {
 		}),
 	}
 
+	header := "CTRL-Y: Yank | ALT-ENTER: View in browser"
 	if opts.Tmux {
-		fzfOpts = append(fzfOpts, fzf.WithHeader[project.Project]("ENTER: Change session | CTRL-Y: Yank | ALT-ENTER: View in browser"))
+		header = fmt.Sprintf("ENTER: Change session | %s", header)
 	} else {
-		fzfOpts = append(fzfOpts, fzf.WithHeader[project.Project]("ENTER: Change directory | CTRL-Y: Yank | ALT-ENTER: View in browser"))
+		header = fmt.Sprintf("ENTER: Change directory | %s", header)
 	}
+	fzfOpts = append(fzfOpts, fzf.WithHeader[project.Project](header))
 
 	proj, err := fzf.One(
 		ctx,
