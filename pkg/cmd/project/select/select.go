@@ -16,6 +16,7 @@ import (
 	"github.com/zkhvan/z/pkg/gh"
 	"github.com/zkhvan/z/pkg/iolib"
 	"github.com/zkhvan/z/pkg/project"
+	"github.com/zkhvan/z/pkg/tmux"
 )
 
 type Options struct {
@@ -26,6 +27,7 @@ type Options struct {
 	RefreshCache bool
 	Remote       bool
 	Local        bool
+	Tmux         bool
 }
 
 func NewCmdSelect(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cobra.Command {
@@ -54,6 +56,7 @@ func NewCmdSelect(f *cmdutil.Factory, projectOpts *internal.ProjectOptions) *cob
 	cmd.Flags().BoolVar(&opts.RefreshCache, "refresh-cache", false, "Refresh the cache")
 	cmd.Flags().BoolVar(&opts.Remote, "remote", true, "List remote projects")
 	cmd.Flags().BoolVar(&opts.Local, "local", true, "List local projects")
+	cmd.Flags().BoolVar(&opts.Tmux, "tmux", false, "Open in tmux")
 
 	return cmd
 }
@@ -95,9 +98,8 @@ func (opts *Options) Run(ctx context.Context) error {
 	}
 
 	shouldCD := true
-	proj, err := fzf.One(
-		ctx,
-		results,
+
+	fzfOpts := []fzf.Option[project.Project]{
 		fzf.WithIterator(projectByPath),
 		fzf.WithBinding("ctrl-y", func(p project.Project) error {
 			shouldCD = false
@@ -105,7 +107,7 @@ func (opts *Options) Run(ctx context.Context) error {
 				return err
 			}
 
-			clipboard.Write(clipboard.FmtText, []byte(p.LocalID))
+			clipboard.Write(clipboard.FmtText, []byte(p.AbsolutePath))
 			return nil
 		}),
 		fzf.WithBinding("alt-enter", func(p project.Project) error {
@@ -123,7 +125,18 @@ func (opts *Options) Run(ctx context.Context) error {
 			_, err := gh.NewClient().RepoView(ctx, opts)
 			return err
 		}),
-		fzf.WithHeader[project.Project]("ENTER: Change directory | CTRL-Y: Yank | ALT-ENTER: View in browser"),
+	}
+
+	if opts.Tmux {
+		fzfOpts = append(fzfOpts, fzf.WithHeader[project.Project]("ENTER: Change session | CTRL-Y: Yank | ALT-ENTER: View in browser"))
+	} else {
+		fzfOpts = append(fzfOpts, fzf.WithHeader[project.Project]("ENTER: Change directory | CTRL-Y: Yank | ALT-ENTER: View in browser"))
+	}
+
+	proj, err := fzf.One(
+		ctx,
+		results,
+		fzfOpts...,
 	)
 	if errors.Is(err, fzf.ErrCanceled) {
 		return nil
@@ -141,6 +154,13 @@ func (opts *Options) Run(ctx context.Context) error {
 	}
 
 	if shouldCD {
+		if opts.Tmux {
+			return tmux.NewSession(ctx, &tmux.NewOptions{
+				Name: proj.LocalID,
+				Dir:  proj.AbsolutePath,
+			})
+		}
+
 		fmt.Fprintf(opts.io.Out, "cd %s\n", proj.AbsolutePath)
 	}
 	return nil
