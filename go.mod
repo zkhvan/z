@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/atotto/clipboard v0.1.4
 	github.com/google/go-cmp v0.7.0
-	github.com/knadh/koanf/parsers/yaml v0.1.0
+	github.com/knadh/koanf/parsers/yaml v1.0.0
 	github.com/knadh/koanf/providers/file v1.2.0
 	github.com/knadh/koanf/v2 v2.2.0
 	github.com/samber/lo v1.49.1
