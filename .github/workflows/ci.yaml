@@ -22,14 +22,10 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Set up fd
+      # Run as a separate step, since this updates the ${GITHUB_PATH} variable
+      - name: Install CI dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y fd-find
-          # Optionally, create a symlink so you can call it with 'fd'
-          mkdir -p ~/.local/bin
-          ln -s $(which fdfind) ~/.local/bin/fd || true
-          fd --version
+          make ci-deps
 
       - name: Run CI scripts
         run: |

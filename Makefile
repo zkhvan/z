@@ -96,9 +96,20 @@ build:
 # ==========================================================================
 # CI
 #
-# These targets are used to run the tests and build the application in the CI.
+# These targets are used to run the tests and build the application in CI.
 # ==========================================================================
 
 ## ci: run automated CI checks
 .PHONY: ci
 ci: tidy-go-verify test-report build
+
+## ci-deps: install ci dependencies
+.PHONY: ci-deps
+ci-deps:
+	sudo apt-get update
+	sudo apt-get install -y fd-find
+
+	# Optionally, create a symlink so you can call it with 'fd'
+	mkdir -p hack/bin
+	ln -s $$(which fdfind) hack/bin/fd || true
+	echo $$(pwd)/hack/bin >> "${GITHUB_PATH}"
