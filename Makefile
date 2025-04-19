@@ -2,6 +2,8 @@ include $(CURDIR)/hack/tools.mk
 
 MAIN_PACKAGE_PATH := ./cmd/z
 BINARY_NAME       := ./bin/z
+VERSION           ?= DEV
+VERSION_PACKAGE   ?= github.com/zkhvan/z/internal/build
 
 # ==========================================================================
 # HELPERS
