@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
-version: 1
+version: 2
 
 project_name: z
 
@@ -13,6 +13,20 @@ before:
 release:
   prerelease: auto
   name_template: "Zhenya's CLI {{.Version}}"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^docs'
+      - '^test'
+      - '^ci'
+      - '^build'
+      - '^chore'
+      - '^refactor'
+      - Merge pull request
+      - Merge branch
 
 builds:
   - main: ./cmd/z
@@ -34,3 +48,6 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+checksum:
+  name_template: "checksums.txt"
