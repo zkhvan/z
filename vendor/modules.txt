@@ -25,8 +25,8 @@ github.com/inconshreveable/mousetrap
 # github.com/knadh/koanf/maps v0.1.2
 ## explicit; go 1.18
 github.com/knadh/koanf/maps
-# github.com/knadh/koanf/parsers/yaml v0.1.0
-## explicit; go 1.18
+# github.com/knadh/koanf/parsers/yaml v1.0.0
+## explicit; go 1.23.0
 github.com/knadh/koanf/parsers/yaml
 # github.com/knadh/koanf/providers/file v1.2.0
 ## explicit; go 1.23.0
