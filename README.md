@@ -1,6 +1,7 @@
 # Zhenya's CLI - z
 
 [![CI](https://github.com/zkhvan/z/actions/workflows/ci.yaml/badge.svg)](https://github.com/zkhvan/z/actions/workflows/ci.yaml)
+[![License: MIT](https://img.shields.io/github/license/zkhvan/z)](https://github.com/zkhvan/z/blob/main/LICENSE)
 
 A CLI designed for productivity, written in Go.
 
