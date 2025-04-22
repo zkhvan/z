@@ -19,9 +19,11 @@ func (s *Service) listLocalProjects(ctx context.Context, opts *ListOptions) ([]P
 
 func (s *Service) loadLocalProjects(ctx context.Context) ([]Project, error) {
 	var (
-		glob        = true
-		hidden      = true
-		maxDepth    = s.cfg.MaxDepth
+		glob   = true
+		hidden = true
+		// maxDepth should be increased by 1, so that it finds the `.git`
+		// directory inside a project directory.
+		maxDepth    = s.cfg.MaxDepth + 1
 		noIgnoreVCS = true
 		follow      = true
 		root        = s.cfg.Root
