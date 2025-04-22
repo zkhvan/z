@@ -58,7 +58,7 @@ func NewConfig(cfg cmdutil.Config) (Config, error) {
 }
 
 func (c Config) setDefaults() Config {
-	c.MaxDepth = cmp.Or(c.MaxDepth, 4)
+	c.MaxDepth = cmp.Or(c.MaxDepth, 3)
 
 	if c.Root == "" {
 		c.Root = "~/Projects"
