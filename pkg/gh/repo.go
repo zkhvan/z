@@ -33,6 +33,7 @@ func (c *Client) ListRepos(ctx context.Context, opts *RepoListOptions) ([]*Repo,
 	cmd := c.executor.CommandContext(
 		ctx,
 		"gh", "repo", "list",
+		"--limit", "9999",
 		opts.Owner, "--json", "owner,name",
 	)
 
