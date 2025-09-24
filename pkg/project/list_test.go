@@ -185,7 +185,7 @@ func TestList(t *testing.T) {
 			fakeexec := &testingexec.FakeExec{}
 			for owner, ownerRepos := range test.remote {
 				fakeexec.CommandScript = append(fakeexec.CommandScript, func(_ string, _ ...string) exec.Cmd {
-					fakeCmd := testingexec.NewFakeCmd("gh", "repo", "list", owner, "--json", "owner,name")
+					fakeCmd := testingexec.NewFakeCmd("gh", "repo", "list", "--limit", "9999", owner, "--json", "owner,name")
 					fakeCmd.OutputScripts = []testingexec.FakeAction{
 						func() ([]byte, []byte, error) {
 							var responses []string
