@@ -22,7 +22,7 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List tmux sessions",
+		Short: "List popup sessions",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return opts.Run(cmd.Context())
 		},
@@ -32,15 +32,20 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 }
 
 func (opts *Options) Run(ctx context.Context) error {
-	sessions, err := tmux.ListSessions(ctx, &tmux.ListOptions{
-		ExcludePopupSessions: true,
-	})
+	parentName, err := tmux.CurrentSessionName(ctx)
+	if err != nil {
+		return err
+	}
+
+	sessions, err := tmux.ListSessions(ctx, nil)
 	if err != nil {
 		return err
 	}
 
 	for _, session := range sessions {
-		fmt.Fprintln(opts.io.Out, session.Name)
+		if name, ok := tmux.ExtractPopupName(session.Name, parentName); ok {
+			fmt.Fprintln(opts.io.Out, name)
+		}
 	}
 
 	return nil

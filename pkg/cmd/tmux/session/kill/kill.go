@@ -2,6 +2,7 @@ package kill
 
 import (
 	"context"
+	"errors"
 	"sort"
 
 	"github.com/MakeNowJust/heredoc/v2"
@@ -41,10 +42,17 @@ func (o *Options) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	currentSessionName, err := tmux.CurrentSessionName(ctx)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err == nil {
-			// If we successfully switch to another session, kill the current one
-			err = tmux.KillSession(ctx, tmux.Session{ID: currentSessionID})
+			err = errors.Join(
+				// If we successfully switch to another session, kill the current one
+				tmux.KillSession(ctx, tmux.Session{ID: currentSessionID}),
+				tmux.KillPopups(ctx, currentSessionName),
+			)
 		}
 	}()
 
@@ -56,6 +64,7 @@ func (o *Options) Run(ctx context.Context) error {
 	// Get all sessions except current one
 	sessions, err := tmux.ListSessions(ctx, &tmux.ListOptions{
 		ExcludeCurrentSession: true,
+		ExcludePopupSessions:  true,
 	})
 	if err != nil {
 		return err
