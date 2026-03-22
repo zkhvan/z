@@ -60,14 +60,14 @@ func (opts *Options) Run(ctx context.Context) error {
 		// Popup keybindings — bound in root table with a conditional so they
 		// only take effect in popup sessions (name starts with _popup_).
 		popupPattern := fmt.Sprintf("#{m:%s*,#{session_name}}", tmux.PopupPrefix)
-		if err := tmux.BindKey(ctx, "root", "C-_",
+		if err := tmux.BindKey(ctx, "root", "S-F1",
 			"if-shell", "-F", popupPattern,
-			"detach-client", ""); err != nil {
+			"detach-client", "send-keys S-F1"); err != nil {
 			return err
 		}
 		if err := tmux.BindKey(ctx, "root", "M-[",
 			"if-shell", "-F", popupPattern,
-			"copy-mode", ""); err != nil {
+			"copy-mode", "send-keys M-["); err != nil {
 			return err
 		}
 	}
