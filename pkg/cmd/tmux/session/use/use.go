@@ -30,6 +30,7 @@ func NewCmdUse(_ *cmdutil.Factory) *cobra.Command {
 func (opts *Options) Run(ctx context.Context) error {
 	sessions, err := tmux.ListSessions(ctx, &tmux.ListOptions{
 		ExcludeCurrentSession: true,
+		ExcludePopupSessions:  true,
 	})
 	if err != nil {
 		return err
