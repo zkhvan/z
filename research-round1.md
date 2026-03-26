@@ -164,7 +164,7 @@ Pure Go parser, validator, and linter. 21+ diagram type ASTs via `ast.Diagram` i
 | [nikolaydubina/go-graph-layout](https://github.com/nikolaydubina/go-graph-layout) | ~95 | Sugiyama-style DAG layout (WIP) |
 | [goccy/go-graphviz](https://github.com/goccy/go-graphviz) | -- | Graphviz via WASM (SVG/PNG, no ASCII) |
 | [gonum/graph](https://pkg.go.dev/gonum.org/v1/gonum/graph) | -- | Graph algorithms + DOT marshaling |
-| [terrastruct/d2](https://github.com/terrastruct/d2) | High | Modern diagram language (SVG/PNG, no ASCII, own DSL) |
+| [terrastruct/d2](https://github.com/terrastruct/d2) | High | Modern diagram language, own DSL. Has alpha ASCII renderer using ELK layout downscaling -- alternative architectural approach worth investigating |
 
 ### Non-Go Reference
 
