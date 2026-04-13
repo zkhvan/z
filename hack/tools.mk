@@ -57,7 +57,6 @@ install-golangci-lint: $(GOLANGCI_LINT) $(GOLANGCI_LINT_LINK)
 .PHONY: clean-tools
 clean-tools:
 	rm -rf $(BIN_DIR)/*
-	rm -rf $(INCLUDE_DIR)/*
 
 # Update all tools
 .PHONY: update-tools
