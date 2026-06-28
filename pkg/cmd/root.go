@@ -13,6 +13,7 @@ import (
 	shellCmd "github.com/zkhvan/z/pkg/cmd/shell"
 	tmuxCmd "github.com/zkhvan/z/pkg/cmd/tmux"
 	versionCmd "github.com/zkhvan/z/pkg/cmd/version"
+	workspaceCmd "github.com/zkhvan/z/pkg/cmd/workspace"
 	"github.com/zkhvan/z/pkg/cmdutil"
 )
 
@@ -47,6 +48,7 @@ func NewCmdRoot(f *cmdutil.Factory, version, date string) (*cobra.Command, error
 	cmd.AddCommand(versionCmd.NewCmdVersion(f, version, date))
 	cmd.AddCommand(tmuxCmd.NewCmdTmux(f))
 	cmd.AddCommand(projectCmd.NewCmdProject(f))
+	cmd.AddCommand(workspaceCmd.NewCmdWorkspace(f))
 	cmd.AddCommand(configCmd.NewCmdConfig(f))
 	cmd.AddCommand(shellCmd.NewCmdShell(f))
 
