@@ -19,6 +19,21 @@ func (c *Client) BranchExists(ctx context.Context, repoPath, branch string) (boo
 	return true, nil
 }
 
+// RefExists reports whether any ref has name as its tail: a local branch, a
+// remote-tracking branch, or a tag. That is the set `git switch` can resolve,
+// including the remote-tracking DWIM.
+func (c *Client) RefExists(ctx context.Context, repoPath, name string) (bool, error) {
+	cmd := c.executor.CommandContext(ctx, "git", "-C", repoPath, "show-ref", "--quiet", name)
+	if err := cmd.Run(); err != nil {
+		var exitErr interface{ ExitCode() int }
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return false, nil
+		}
+		return false, fmt.Errorf("checking ref %q in %q: %w", name, repoPath, err)
+	}
+	return true, nil
+}
+
 func (c *Client) DefaultBranch(ctx context.Context, repoPath string) (string, error) {
 	ref, err := c.remoteHead(ctx, repoPath)
 	if err != nil {

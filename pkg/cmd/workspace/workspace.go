@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	archiveCmd "github.com/zkhvan/z/pkg/cmd/workspace/archive"
+	checkoutCmd "github.com/zkhvan/z/pkg/cmd/workspace/checkout"
 	createCmd "github.com/zkhvan/z/pkg/cmd/workspace/create"
 	deleteCmd "github.com/zkhvan/z/pkg/cmd/workspace/delete"
 	listCmd "github.com/zkhvan/z/pkg/cmd/workspace/list"
@@ -18,6 +19,7 @@ func NewCmdWorkspace(f *cmdutil.Factory) *cobra.Command {
 	}
 
 	cmd.AddCommand(archiveCmd.NewCmdArchive(f))
+	cmd.AddCommand(checkoutCmd.NewCmdCheckout(f))
 	cmd.AddCommand(createCmd.NewCmdCreate(f))
 	cmd.AddCommand(deleteCmd.NewCmdDelete(f))
 	cmd.AddCommand(listCmd.NewCmdList(f))

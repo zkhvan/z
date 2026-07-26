@@ -1,7 +1,6 @@
 package git
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"path/filepath"
@@ -33,16 +32,7 @@ func (c *Client) WorktreeAdd(ctx context.Context, opts WorktreeAddOptions) error
 		args = append(args, "--", opts.WorktreePath, opts.Branch)
 	}
 
-	cmd := c.executor.CommandContext(ctx, "git", args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		output = bytes.TrimSpace(output)
-		if len(output) > 0 {
-			return fmt.Errorf("error running command %q: %w: %s", cmd.String(), err, output)
-		}
-		return fmt.Errorf("error running command %q: %w", cmd.String(), err)
-	}
-	return nil
+	return runCombined(c.executor.CommandContext(ctx, "git", args...))
 }
 
 type WorktreeRemoveOptions struct {
@@ -61,16 +51,7 @@ func (c *Client) WorktreeRemove(ctx context.Context, opts WorktreeRemoveOptions)
 	}
 	args = append(args, "--", opts.WorktreePath)
 
-	cmd := c.executor.CommandContext(ctx, "git", args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		output = bytes.TrimSpace(output)
-		if len(output) > 0 {
-			return fmt.Errorf("error running command %q: %w: %s", cmd.String(), err, output)
-		}
-		return fmt.Errorf("error running command %q: %w", cmd.String(), err)
-	}
-	return nil
+	return runCombined(c.executor.CommandContext(ctx, "git", args...))
 }
 
 func (c *Client) WorktreeList(ctx context.Context, repoPath string) ([]Worktree, error) {

@@ -172,3 +172,41 @@ func TestDefaultBranch_errors_when_origin_head_remains_unknown(t *testing.T) {
 	}
 	assertCommandCalls(t, fake, 3)
 }
+
+func TestRefExists_matches_remote_tracking_branch(t *testing.T) {
+	fake := fakeGit(t, func(_ string, _ ...string) exec.Cmd {
+		cmd := testingexec.NewFakeCmd("git", "-C", "/repo", "show-ref", "--quiet", "feature/login")
+		cmd.RunScripts = []testingexec.FakeAction{
+			func() ([]byte, []byte, error) { return nil, nil, nil },
+		}
+		return cmd
+	})
+	client := git.NewClient().SetExecutor(fake)
+
+	exists, err := client.RefExists(context.Background(), "/repo", "feature/login")
+	if err != nil {
+		t.Fatalf("RefExists returned error: %v", err)
+	}
+	if !exists {
+		t.Fatal("expected ref to exist")
+	}
+}
+
+func TestRefExists_absent_ref_is_not_an_error(t *testing.T) {
+	fake := fakeGit(t, func(_ string, _ ...string) exec.Cmd {
+		cmd := testingexec.NewFakeCmd("git", "-C", "/repo", "show-ref", "--quiet", "feature/login")
+		cmd.RunScripts = []testingexec.FakeAction{
+			func() ([]byte, []byte, error) { return nil, nil, fakeExitError(1) },
+		}
+		return cmd
+	})
+	client := git.NewClient().SetExecutor(fake)
+
+	exists, err := client.RefExists(context.Background(), "/repo", "feature/login")
+	if err != nil {
+		t.Fatalf("RefExists returned error: %v", err)
+	}
+	if exists {
+		t.Fatal("expected ref to be absent")
+	}
+}
