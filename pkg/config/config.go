@@ -15,6 +15,11 @@ import (
 	"github.com/zkhvan/z/pkg/cmdutil"
 )
 
+// EnvConfigDir overrides config-directory resolution entirely. It is the
+// directory that directly contains config.yaml, with no implicit z/ subdir —
+// the same thing NewWithDir takes.
+const EnvConfigDir = "Z_CONFIG_DIR"
+
 var ErrNotFound = errors.New("key not found")
 
 var _ cmdutil.Config = (*provider)(nil)
@@ -127,6 +132,8 @@ func New() (cmdutil.Config, error) {
 	return NewWithDir("")
 }
 
+// NewWithDir treats an explicit dir as winning over $Z_CONFIG_DIR, so a
+// developer with the override exported cannot redirect the test suite.
 func NewWithDir(dir string) (cmdutil.Config, error) {
 	k := koanf.New(".")
 
@@ -187,7 +194,42 @@ func userConfigDir() (string, error) {
 	return dir, nil
 }
 
+// overrideConfigDir validates the override rather than falling back to the real
+// user config on a bad value. A silent fallback would leave a mistyped path
+// resolving to the default roots — the user's own ~/Projects and ~/Workspaces —
+// while they believed the run was isolated.
+func overrideConfigDir() (string, error) {
+	dir := os.Getenv(EnvConfigDir)
+	if dir == "" {
+		return "", nil
+	}
+
+	if !filepath.IsAbs(dir) {
+		return "", fmt.Errorf("$%s must be an absolute path, got %q", EnvConfigDir, dir)
+	}
+	dir = filepath.Clean(dir)
+
+	// Only the directory must exist; a missing config.yaml inside it is a fresh
+	// install, which resolves to defaults as usual.
+	info, err := os.Stat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("$%s %q does not exist", EnvConfigDir, dir)
+		}
+		return "", fmt.Errorf("$%s %q: %w", EnvConfigDir, dir, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("$%s %q is not a directory", EnvConfigDir, dir)
+	}
+
+	return dir, nil
+}
+
 func configDir() (string, error) {
+	if dir, err := overrideConfigDir(); err != nil || dir != "" {
+		return dir, err
+	}
+
 	baseDir, err := userConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("error detecting user configuration directory: %w", err)

@@ -7,7 +7,10 @@ import (
 	"github.com/zkhvan/z/pkg/iolib"
 )
 
-func New(appVersion string) *cmdutil.Factory {
+// New fails rather than panicking on unusable configuration: a mistyped
+// $Z_CONFIG_DIR is ordinary user error and deserves a message, not a stack
+// trace.
+func New(appVersion string) (*cmdutil.Factory, error) {
 	f := &cmdutil.Factory{
 		AppVersion:     appVersion,
 		ExecutableName: "z",
@@ -15,9 +18,14 @@ func New(appVersion string) *cmdutil.Factory {
 
 	f.IOStreams = ioStreams(f)
 	f.PluginHandler = defaultPluginHandler(f)
-	f.Config = defaultConfig(f)
 
-	return f
+	cfg, err := config.New()
+	if err != nil {
+		return nil, err
+	}
+	f.Config = cfg
+
+	return f, nil
 }
 
 func ioStreams(_ *cmdutil.Factory) *iolib.IOStreams {
@@ -26,12 +34,4 @@ func ioStreams(_ *cmdutil.Factory) *iolib.IOStreams {
 
 func defaultPluginHandler(_ *cmdutil.Factory) cmdutil.PluginHandler {
 	return cmd.NewDefaultPluginHandler([]string{"z"})
-}
-
-func defaultConfig(_ *cmdutil.Factory) cmdutil.Config {
-	c, err := config.New()
-	if err != nil {
-		panic(err)
-	}
-	return c
 }

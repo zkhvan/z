@@ -65,6 +65,12 @@ mapped to `~/Projects/work`.
 
 The configuration file is located at `~/.config/z/config.yaml` (or `$XDG_CONFIG_HOME/z/config.yaml` if `$XDG_CONFIG_HOME` is set; on macOS without XDG, the path is `~/Library/Application Support/z/config.yaml`).
 
+Optionally, set `Z_CONFIG_DIR` to an existing directory to use it instead:
+
+```sh
+Z_CONFIG_DIR=$(mktemp -d) z workspace list
+```
+
 The default configuration looks like this:
 
 ```yaml

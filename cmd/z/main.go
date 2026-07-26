@@ -27,7 +27,11 @@ func run() exitCode {
 	buildDate := build.Date
 	buildVersion := build.Version
 
-	f := factory.New(buildVersion)
+	f, err := factory.New(buildVersion)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return exitErr
+	}
 	stderr := f.IOStreams.ErrOut
 
 	rootCmd, err := cmd.NewCmdRoot(f, buildVersion, buildDate)
