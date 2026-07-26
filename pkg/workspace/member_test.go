@@ -39,10 +39,25 @@ func TestParseMember(t *testing.T) {
 
 func TestParseMember_Errors(t *testing.T) {
 	cases := []string{
-		"owner/repo",     // no @ at all
-		"@branch",        // empty repo
-		"noslash@branch", // repo missing owner/
-		"owner/repo@",    // empty branch
+		"owner/repo",                     // no @ at all
+		"@branch",                        // empty repo
+		"noslash@branch",                 // repo missing owner/
+		"../../outside@branch",           // repo escapes the projects root
+		`owner/repo\evil@branch`,         // repo uses a platform path separator
+		" owner/repo@branch",             // repo has leading whitespace
+		"owner/re po@branch",             // repo has internal whitespace
+		"owner/repo@",                    // empty branch
+		"owner/repo@feature..login",      // repeated dots
+		"owner/repo@-feature",            // option-like branch
+		"owner/repo@feature.lock",        // lock-file suffix
+		"owner/repo@feature@{1}",         // reflog syntax
+		"owner/repo@feature login",       // whitespace
+		"owner/repo@feature/.hidden",     // dot-prefixed path component
+		"owner/repo@feature/",            // trailing slash
+		"owner/repo@HEAD",                // reserved branch name
+		`owner/repo@feature\login`,       // invalid ref character
+		"owner/repo@feature:-base",       // option-like base ref
+		"owner/repo@feature:main\nother", // control character in base ref
 	}
 
 	for _, s := range cases {

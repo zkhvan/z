@@ -9,6 +9,7 @@ import (
 
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/exec"
+	gitlib "github.com/zkhvan/z/pkg/git"
 	"github.com/zkhvan/z/pkg/project"
 )
 
@@ -20,6 +21,7 @@ type Service struct {
 	executor exec.Interface
 	cacheDir string
 	project  *project.Service
+	git      *gitlib.Client
 }
 
 type ServiceOption func(*Service)
@@ -28,6 +30,9 @@ type ServiceOption func(*Service)
 func WithExecutor(executor exec.Interface) ServiceOption {
 	return func(s *Service) {
 		s.executor = executor
+		if s.git != nil {
+			s.git.SetExecutor(executor)
+		}
 	}
 }
 
@@ -46,6 +51,7 @@ func NewService(cfg cmdutil.Config, opts ...ServiceOption) (*Service, error) {
 	s := &Service{
 		cfg:      wsCfg,
 		executor: defaultExecutor,
+		git:      gitlib.NewClient(),
 	}
 
 	for _, o := range opts {
@@ -87,7 +93,7 @@ func (s *Service) Create(_ context.Context, name string, members []Member) error
 		Members: make([]manifestMember, len(members)),
 	}
 	for i, m := range members {
-		mf.Members[i] = manifestMember(m)
+		mf.Members[i] = manifestMemberFromMember(m)
 	}
 
 	return writeManifest(instanceDir, mf)
@@ -95,7 +101,7 @@ func (s *Service) Create(_ context.Context, name string, members []Member) error
 
 // List returns instances one level under the root, sorted by name.
 // Directories without .z/instance.yaml are skipped silently.
-func (s *Service) List(_ context.Context) ([]Instance, error) {
+func (s *Service) List(ctx context.Context) ([]Instance, error) {
 	entries, err := os.ReadDir(s.cfg.Root)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -116,16 +122,21 @@ func (s *Service) List(_ context.Context) ([]Instance, error) {
 			continue // not an instance directory
 		}
 
-		members := make([]Member, len(mf.Members))
+		members := make([]InstanceMember, len(mf.Members))
 		for i, mm := range mf.Members {
-			members[i] = Member(mm)
+			members[i] = memberFromManifest(mm)
+			members[i].State = MemberStateUnknown
 		}
+		if err := ValidateMembers(members); err != nil {
+			continue
+		}
+		status := s.deriveInstanceStatus(ctx, dir, members)
 
 		instances = append(instances, Instance{
 			Name:    e.Name(),
 			Dir:     dir,
 			Members: members,
-			Status:  InstanceStatusNotMaterialized,
+			Status:  status,
 		})
 	}
 

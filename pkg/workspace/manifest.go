@@ -24,6 +24,14 @@ type manifestMember struct {
 	BaseRef string `yaml:"base_ref,omitempty"`
 }
 
+func manifestMemberFromMember(m Member) manifestMember {
+	return manifestMember{Repo: m.Repo, Branch: m.Branch, BaseRef: m.BaseRef}
+}
+
+func memberFromManifest(mm manifestMember) Member {
+	return Member{Repo: mm.Repo, Branch: mm.Branch, BaseRef: mm.BaseRef}
+}
+
 // writeManifest writes m atomically (temp file + rename) to dir/.z/instance.yaml.
 func writeManifest(dir string, m manifest) error {
 	dotZ := filepath.Join(dir, ".z")

@@ -10,6 +10,7 @@ import (
 	"github.com/zkhvan/z/pkg/assert"
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/config"
+	testingexec "github.com/zkhvan/z/pkg/exec/testing"
 	"github.com/zkhvan/z/pkg/workspace"
 )
 
@@ -17,6 +18,7 @@ import (
 type serviceTestDir struct {
 	root       string
 	workspaces string
+	projects   string
 	configDir  string
 }
 
@@ -26,9 +28,11 @@ func setupServiceTestDir(t *testing.T) serviceTestDir {
 	td := serviceTestDir{
 		root:       root,
 		workspaces: filepath.Join(root, "workspaces"),
+		projects:   filepath.Join(root, "projects"),
 		configDir:  filepath.Join(root, "config"),
 	}
 	assert.NoError(t, os.MkdirAll(td.workspaces, 0o700))
+	assert.NoError(t, os.MkdirAll(td.projects, 0o700))
 	assert.NoError(t, os.MkdirAll(td.configDir, 0o700))
 	return td
 }
@@ -36,6 +40,7 @@ func setupServiceTestDir(t *testing.T) serviceTestDir {
 func setupServiceConfig(t *testing.T, td serviceTestDir, rawCfg string) cmdutil.Config {
 	t.Helper()
 	rawCfg = strings.ReplaceAll(rawCfg, "$WORKSPACESDIR", td.workspaces)
+	rawCfg = strings.ReplaceAll(rawCfg, "$PROJECTSDIR", td.projects)
 	cfgPath := filepath.Join(td.configDir, "config.yaml")
 	if rawCfg != "" {
 		assert.NoError(t, os.WriteFile(cfgPath, []byte(rawCfg), 0o600))
@@ -163,6 +168,66 @@ workspaces:
 	}
 }
 
+func TestCreate_UnsafeRepoID_Error(t *testing.T) {
+	td := setupServiceTestDir(t)
+	cfg := setupServiceConfig(t, td, `
+workspaces:
+  root: $WORKSPACESDIR
+`)
+	svc, err := workspace.NewService(cfg)
+	assert.NoError(t, err)
+
+	err = svc.Create(context.Background(), "unsafe", []workspace.Member{
+		{Repo: "owner/..", Branch: "main"},
+	})
+	if err == nil {
+		t.Fatal("expected error for unsafe repo ID, got nil")
+	}
+	if _, statErr := os.Stat(filepath.Join(td.workspaces, "unsafe")); !os.IsNotExist(statErr) {
+		t.Fatalf("unsafe workspace should not be created: %v", statErr)
+	}
+}
+
+func TestCreate_UnsafeBranch_Error(t *testing.T) {
+	td := setupServiceTestDir(t)
+	cfg := setupServiceConfig(t, td, `
+workspaces:
+  root: $WORKSPACESDIR
+`)
+	svc, err := workspace.NewService(cfg)
+	assert.NoError(t, err)
+
+	err = svc.Create(context.Background(), "unsafe", []workspace.Member{
+		{Repo: "owner/repo", Branch: "-feature"},
+	})
+	if err == nil {
+		t.Fatal("expected error for unsafe branch, got nil")
+	}
+	if _, statErr := os.Stat(filepath.Join(td.workspaces, "unsafe")); !os.IsNotExist(statErr) {
+		t.Fatalf("unsafe workspace should not be created: %v", statErr)
+	}
+}
+
+func TestCreate_UnsafeBaseRef_Error(t *testing.T) {
+	td := setupServiceTestDir(t)
+	cfg := setupServiceConfig(t, td, `
+workspaces:
+  root: $WORKSPACESDIR
+`)
+	svc, err := workspace.NewService(cfg)
+	assert.NoError(t, err)
+
+	err = svc.Create(context.Background(), "unsafe", []workspace.Member{
+		{Repo: "owner/repo", Branch: "feature", BaseRef: "-base"},
+	})
+	if err == nil {
+		t.Fatal("expected error for unsafe base ref, got nil")
+	}
+	if _, statErr := os.Stat(filepath.Join(td.workspaces, "unsafe")); !os.IsNotExist(statErr) {
+		t.Fatalf("unsafe workspace should not be created: %v", statErr)
+	}
+}
+
 func TestCreate_DuplicateBaseName_Error(t *testing.T) {
 	td := setupServiceTestDir(t)
 	cfg := setupServiceConfig(t, td, `
@@ -226,6 +291,33 @@ workspaces:
 	}
 }
 
+func TestList_SkipsUnsafeManifestWithoutRunningCommands(t *testing.T) {
+	td := setupServiceTestDir(t)
+	cfg := setupServiceConfig(t, td, `
+projects:
+  root: $PROJECTSDIR
+workspaces:
+  root: $WORKSPACESDIR
+`)
+	manifestDir := filepath.Join(td.workspaces, "unsafe", ".z")
+	assert.NoError(t, os.MkdirAll(manifestDir, 0o700))
+	manifest := []byte("version: 1\nmembers:\n  - repo: ../../outside\n    branch: main\n")
+	assert.NoError(t, os.WriteFile(filepath.Join(manifestDir, "instance.yaml"), manifest, 0o600))
+
+	fake := &testingexec.FakeExec{}
+	svc, err := workspace.NewService(cfg, workspace.WithExecutor(fake))
+	assert.NoError(t, err)
+
+	instances, err := svc.List(context.Background())
+	assert.NoError(t, err)
+	if len(instances) != 0 {
+		t.Fatalf("expected unsafe manifest to be skipped, got %+v", instances)
+	}
+	if fake.CommandCalls != 0 {
+		t.Fatalf("expected no commands for unsafe manifest, got %d", fake.CommandCalls)
+	}
+}
+
 func TestList_SkipsNonInstanceDirs(t *testing.T) {
 	td := setupServiceTestDir(t)
 	cfg := setupServiceConfig(t, td, `
@@ -254,7 +346,7 @@ workspaces:
 	}
 }
 
-func TestList_UnmaterializedStatus(t *testing.T) {
+func TestList_NewStatus(t *testing.T) {
 	td := setupServiceTestDir(t)
 	cfg := setupServiceConfig(t, td, `
 workspaces:
@@ -273,7 +365,31 @@ workspaces:
 	if len(instances) != 1 {
 		t.Fatalf("expected 1 instance, got %d", len(instances))
 	}
-	if instances[0].Status != workspace.InstanceStatusNotMaterialized {
-		t.Fatalf("expected status %q, got %q", workspace.InstanceStatusNotMaterialized, instances[0].Status)
+	if instances[0].Status != workspace.InstanceStatusNew {
+		t.Fatalf("expected status %q, got %q", workspace.InstanceStatusNew, instances[0].Status)
+	}
+	if instances[0].Members[0].State != workspace.MemberStateUnknown {
+		t.Fatalf("expected member state %q, got %q", workspace.MemberStateUnknown, instances[0].Members[0].State)
+	}
+}
+
+func TestList_ArchivedStatus(t *testing.T) {
+	td := setupServiceTestDir(t)
+	cfg := setupServiceConfig(t, td, `
+workspaces:
+  root: $WORKSPACESDIR
+`)
+	svc, err := workspace.NewService(cfg)
+	assert.NoError(t, err)
+	assert.NoError(t, svc.Create(context.Background(), "ws", []workspace.Member{
+		{Repo: "owner/repo", Branch: "main"},
+	}))
+	assert.NoError(t, os.WriteFile(filepath.Join(td.workspaces, "ws", ".z", "materialized"), nil, 0o600))
+
+	instances, err := svc.List(context.Background())
+	assert.NoError(t, err)
+
+	if instances[0].Status != workspace.InstanceStatusArchived {
+		t.Fatalf("expected status %q, got %q", workspace.InstanceStatusArchived, instances[0].Status)
 	}
 }

@@ -36,7 +36,7 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 			as a plain ASCII tree, sorted alphabetically.
 
 			Instance rows: name, directory (~ collapsed), status.
-			Member rows:   repo, branch (no worktree state when unmaterialized).
+			Member rows:   repo, branch, worktree state.
 		`),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return opts.Run(cmd.Context())
@@ -70,7 +70,7 @@ func (opts *Options) Run(ctx context.Context) error {
 			fmt.Fprintf(opts.io.Out, "  %s\t%s\t%s\n",
 				m.Repo,
 				m.Branch,
-				"—",
+				m.State,
 			)
 		}
 	}
