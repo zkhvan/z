@@ -1,10 +1,10 @@
-package delete_test
+package materialize_test
 
 import (
 	"testing"
 
-	deletecmd "github.com/zkhvan/z/pkg/cmd/workspace/delete"
 	"github.com/zkhvan/z/pkg/cmd/workspace/internal/wstest"
+	"github.com/zkhvan/z/pkg/cmd/workspace/materialize"
 )
 
 type harness struct{ *wstest.Harness }
@@ -15,5 +15,5 @@ func newCommandTest(t *testing.T) *harness {
 }
 
 func (h *harness) run(args ...string) error {
-	return h.Run(deletecmd.NewCmdDelete, args...)
+	return h.Run(materialize.NewCmdMaterialize, args...)
 }
