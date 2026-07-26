@@ -17,12 +17,24 @@ func TestDelete_missing_instance(t *testing.T) {
 	wstest.AssertErrorContains(t, err, "has not been created")
 }
 
-func TestDelete_missing_name_arg(t *testing.T) {
+func TestDelete_omitted_name_outside_the_workspaces_root(t *testing.T) {
 	h := newCommandTest(t)
 
 	err := h.run()
 
-	wstest.AssertErrorContains(t, err, "accepts 1 arg(s)")
+	wstest.AssertErrorContains(t, err, "is not inside a workspace under")
+}
+
+func TestDelete_name_from_the_instance_directory(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedInstance("login", workspace.Member{Repo: "owner/repo", Branch: "feature/login"})
+	h.InDir("login")
+
+	err := h.run("--force")
+	assert.NoError(t, err)
+
+	h.PathMissing("login")
+	h.OutputContains(`Deleted workspace "login"`)
 }
 
 // The unmanaged-files guard fires before any git call, so it exercises the

@@ -17,12 +17,62 @@ func TestArchive_missing_instance(t *testing.T) {
 	wstest.AssertErrorContains(t, err, "has not been created")
 }
 
-func TestArchive_missing_name_arg(t *testing.T) {
+func TestArchive_omitted_name_outside_the_workspaces_root(t *testing.T) {
 	h := newCommandTest(t)
 
 	err := h.run()
 
-	wstest.AssertErrorContains(t, err, "accepts 1 arg(s)")
+	wstest.AssertErrorContains(t, err, "is not inside a workspace under")
+}
+
+func TestArchive_omitted_name_at_the_workspaces_root(t *testing.T) {
+	h := newCommandTest(t)
+	h.InDir()
+
+	err := h.run()
+
+	wstest.AssertErrorContains(t, err, "is not inside a workspace under")
+}
+
+func TestArchive_name_from_the_instance_directory(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedInstance("login", workspace.Member{Repo: "owner/repo", Branch: "feature/login"})
+	h.SeedFile(filepath.Join("login", "repo", "work.txt"), "content\n")
+	h.InDir("login")
+
+	err := h.run("--force")
+	assert.NoError(t, err)
+
+	h.OutputContains(`Archived workspace "login"`)
+	h.FileExists(filepath.Join("login", ".z", "instance.yaml"))
+}
+
+func TestArchive_name_from_a_member_worktree(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedInstance("login", workspace.Member{Repo: "owner/repo", Branch: "feature/login"})
+	h.SeedFile(filepath.Join("login", "repo", "work.txt"), "content\n")
+	h.InDir("login", "repo")
+
+	err := h.run("--force")
+	assert.NoError(t, err)
+
+	h.OutputContains(`Archived workspace "login"`)
+}
+
+func TestArchive_explicit_name_overrides_the_current_directory(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedInstance("login", workspace.Member{Repo: "owner/repo", Branch: "feature/login"})
+	h.SeedInstance("other", workspace.Member{Repo: "owner/other", Branch: "feature/other"})
+	h.SeedFile(filepath.Join("other", "other", "work.txt"), "content\n")
+	h.SeedFile(filepath.Join("login", "repo", "work.txt"), "content\n")
+	h.InDir("other", "other")
+
+	err := h.run("login", "--force")
+	assert.NoError(t, err)
+
+	h.OutputContains(`Archived workspace "login"`)
+	h.PathMissing(filepath.Join("login", "repo"))
+	h.FileExists(filepath.Join("other", "other", "work.txt"))
 }
 
 // The orphaned-member guard fires before any git call, so it exercises the

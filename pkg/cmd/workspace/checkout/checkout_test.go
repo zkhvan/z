@@ -1,6 +1,7 @@
 package checkout_test
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/zkhvan/z/pkg/cmd/workspace/internal/wstest"
@@ -10,9 +11,52 @@ import (
 func TestCheckout_missing_args(t *testing.T) {
 	h := newCommandTest(t)
 
-	err := h.run("login", "repo")
+	err := h.run()
 
-	wstest.AssertErrorContains(t, err, "accepts 3 arg(s)")
+	wstest.AssertErrorContains(t, err, "accepts between 1 and 3 arg(s)")
+}
+
+func TestCheckout_name_from_the_instance_directory(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedInstance("login", workspace.Member{Repo: "owner/repo", Branch: "feature/one"})
+	h.InDir("login")
+
+	err := h.run("repo", "feature/two")
+
+	wstest.AssertErrorContains(t, err, "run `z workspace materialize login` first")
+}
+
+func TestCheckout_name_and_repo_from_a_member_worktree(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedInstance("login", workspace.Member{Repo: "owner/repo", Branch: "feature/one"})
+	h.SeedDir(filepath.Join("login", "repo"))
+	h.InDir("login", "repo")
+
+	err := h.run("feature/two")
+
+	wstest.AssertErrorContains(t, err, "owner/repo is not materialized")
+}
+
+func TestCheckout_omitted_repo_at_the_instance_directory(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedInstance("login", workspace.Member{Repo: "owner/repo", Branch: "feature/one"})
+	h.InDir("login")
+
+	err := h.run("feature/two")
+
+	wstest.AssertErrorContains(t, err, `is not inside a member worktree of workspace "login"`)
+}
+
+func TestCheckout_explicit_args_override_the_current_directory(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedInstance("login", workspace.Member{Repo: "owner/api", Branch: "feature/one"})
+	h.SeedInstance("other", workspace.Member{Repo: "owner/web", Branch: "feature/one"})
+	h.SeedDir(filepath.Join("other", "web"))
+	h.InDir("other", "web")
+
+	err := h.run("login", "api", "feature/two")
+
+	wstest.AssertErrorContains(t, err, "run `z workspace materialize login` first")
 }
 
 func TestCheckout_missing_instance(t *testing.T) {

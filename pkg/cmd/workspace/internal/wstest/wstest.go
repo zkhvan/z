@@ -114,6 +114,15 @@ func (h *Harness) Root() string {
 	return h.root
 }
 
+// InDir runs the rest of the test from a directory under the workspaces root,
+// with no arguments meaning the root itself. The current directory is one of
+// the few inputs argv cannot express.
+func (h *Harness) InDir(relPath ...string) *Harness {
+	h.t.Helper()
+	h.t.Chdir(filepath.Join(append([]string{h.root}, relPath...)...))
+	return h
+}
+
 // SeedInstance writes a manifest without running the command under test.
 func (h *Harness) SeedInstance(name string, members ...workspace.Member) {
 	h.t.Helper()

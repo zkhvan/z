@@ -7,6 +7,7 @@ import (
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
 
+	"github.com/zkhvan/z/pkg/cmd/workspace/internal/wsloc"
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/exec"
 	"github.com/zkhvan/z/pkg/iolib"
@@ -33,7 +34,7 @@ func NewCmdCheckout(f *cmdutil.Factory) *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:   "checkout <name> <repo> <branch>",
+		Use:   "checkout [<name>] [<repo>] <branch>",
 		Short: "Switch one workspace member to another branch",
 		Long: heredoc.Doc(`
 			Switch a materialized member's worktree in place, keeping untracked
@@ -41,6 +42,10 @@ func NewCmdCheckout(f *cmdutil.Factory) *cobra.Command {
 
 			The member is matched by directory name first, then by its full
 			owner/repo remote ID.
+
+			Arguments bind from the right, so the leading ones can be omitted and
+			taken from the current directory: the name from inside an instance,
+			the repo from inside a member worktree.
 
 			Branches are never invented: an unknown branch is an error unless
 			--create is given. A created branch starts from --base, which
@@ -51,7 +56,7 @@ func NewCmdCheckout(f *cmdutil.Factory) *cobra.Command {
 			Uncommitted changes, or a branch already checked out in another
 			worktree, abort the switch and leave the manifest untouched.
 		`),
-		Args: cobra.ExactArgs(3),
+		Args: cobra.RangeArgs(1, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.Complete(cmd, args); err != nil {
 				return err
@@ -68,10 +73,16 @@ func NewCmdCheckout(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
+// Complete binds arguments from the right, leaving the omitted ones — <repo>,
+// then <name> — to the current directory.
 func (opts *Options) Complete(_ *cobra.Command, args []string) error {
-	opts.Name = args[0]
-	opts.Repo = args[1]
-	opts.Branch = args[2]
+	opts.Branch = args[len(args)-1]
+	if len(args) > 1 {
+		opts.Repo = args[len(args)-2]
+	}
+	if len(args) > 2 {
+		opts.Name = args[len(args)-3]
+	}
 	return nil
 }
 
@@ -84,7 +95,12 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	result, err := svc.Checkout(ctx, opts.Name, opts.Repo, opts.Branch, workspace.CheckoutOptions{
+	name, repo, err := wsloc.NameAndMember(svc, opts.Name, opts.Repo)
+	if err != nil {
+		return err
+	}
+
+	result, err := svc.Checkout(ctx, name, repo, opts.Branch, workspace.CheckoutOptions{
 		Create: opts.Create,
 		Base:   opts.Base,
 	})
