@@ -34,7 +34,26 @@ func (s *IOStreams) IsTerminal() bool {
 	return ok && term.IsTerminal(f.Fd())
 }
 
-// SetTerminal overrides detection, for tests and for callers that already know.
+// IsInputTerminal reports whether In is a terminal. Prompting needs this as
+// well as IsTerminal: `z ... < answers.txt` has a terminal to draw on but
+// nobody to answer.
+func (s *IOStreams) IsInputTerminal() bool {
+	if s.terminal != nil {
+		return *s.terminal
+	}
+
+	f, ok := s.In.(term.File)
+	return ok && term.IsTerminal(f.Fd())
+}
+
+// IsInteractive reports whether z may prompt: someone is watching and someone
+// can answer.
+func (s *IOStreams) IsInteractive() bool {
+	return s.IsInputTerminal() && s.IsTerminal()
+}
+
+// SetTerminal overrides detection for both streams, for tests and for callers
+// that already know.
 func (s *IOStreams) SetTerminal(terminal bool) {
 	s.terminal = &terminal
 }

@@ -95,3 +95,26 @@ func TestValidateMembers(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateBranch(t *testing.T) {
+	if err := workspace.ValidateBranch("feature/login"); err != nil {
+		t.Fatalf("valid branch rejected: %v", err)
+	}
+	for _, branch := range []string{"", "feat 1", "HEAD", "-x", "a..b"} {
+		if err := workspace.ValidateBranch(branch); err == nil {
+			t.Fatalf("branch %q accepted", branch)
+		}
+	}
+}
+
+func TestValidateBaseRef(t *testing.T) {
+	// Empty is valid: it resolves the default branch at materialize time.
+	for _, ref := range []string{"", "main", "origin/main"} {
+		if err := workspace.ValidateBaseRef(ref); err != nil {
+			t.Fatalf("base ref %q rejected: %v", ref, err)
+		}
+	}
+	if err := workspace.ValidateBaseRef("--force"); err == nil {
+		t.Fatal("flag-like base ref accepted")
+	}
+}

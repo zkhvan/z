@@ -2,6 +2,7 @@ package create
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/MakeNowJust/heredoc/v2"
@@ -38,6 +39,10 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			Each --member flag is in the form owner/repo@branch[:base_ref].
 			The @branch is required; :base_ref is optional and defaults to
 			the repository's default branch at materialize time.
+
+			Without --member, an interactive wizard collects repositories,
+			branches, and base refs. Running without --member outside a
+			terminal is an error rather than a wait for input.
 		`),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,8 +56,6 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringArrayVar(&opts.MemberFlags, "member", nil, heredoc.Doc(`
 		Repository member in the form owner/repo@branch[:base_ref]. Repeatable.
 	`))
-	_ = cmd.MarkFlagRequired("member")
-
 	return cmd
 }
 
@@ -62,13 +65,13 @@ func (opts *Options) Complete(_ *cobra.Command, args []string) error {
 }
 
 func (opts *Options) Run(ctx context.Context) error {
-	members := make([]workspace.Member, 0, len(opts.MemberFlags))
-	for _, flag := range opts.MemberFlags {
-		m, err := workspace.ParseMember(flag)
-		if err != nil {
-			return fmt.Errorf("--member %q: %w", flag, err)
+	members, err := opts.members(ctx)
+	if err != nil {
+		if errors.Is(err, errAborted) {
+			fmt.Fprintln(opts.io.ErrOut, "Canceled; no workspace created")
+			return nil
 		}
-		members = append(members, m)
+		return err
 	}
 
 	svc, err := workspace.NewService(
@@ -85,4 +88,26 @@ func (opts *Options) Run(ctx context.Context) error {
 
 	fmt.Fprintf(opts.io.Out, "Created workspace %q\n", opts.Name)
 	return nil
+}
+
+func (opts *Options) members(ctx context.Context) ([]workspace.Member, error) {
+	if len(opts.MemberFlags) > 0 {
+		members := make([]workspace.Member, 0, len(opts.MemberFlags))
+		for _, flag := range opts.MemberFlags {
+			m, err := workspace.ParseMember(flag)
+			if err != nil {
+				return nil, fmt.Errorf("--member %q: %w", flag, err)
+			}
+			members = append(members, m)
+		}
+		return members, nil
+	}
+
+	// Blocking on a pipe that will never answer is the one failure mode a
+	// scripted caller cannot recover from.
+	if !opts.io.IsInteractive() {
+		return nil, errors.New("no members specified: pass --member, or run interactively to use the wizard")
+	}
+
+	return opts.collectMembers(ctx)
 }

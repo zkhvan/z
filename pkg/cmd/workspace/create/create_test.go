@@ -46,12 +46,12 @@ func TestCreate_missing_name_arg(t *testing.T) {
 	wstest.AssertErrorContains(t, err, "accepts 1 arg(s)")
 }
 
-func TestCreate_missing_member_flag(t *testing.T) {
+func TestCreate_no_members_outside_a_terminal_fails_loudly(t *testing.T) {
 	h := newCommandTest(t)
 
 	err := h.run("empty")
 
-	wstest.AssertErrorContains(t, err, `required flag(s) "member" not set`)
+	wstest.AssertErrorContains(t, err, "pass --member, or run interactively")
 	h.NoWorkspace("empty")
 }
 

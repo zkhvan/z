@@ -22,6 +22,17 @@ func (m Member) BaseName() string {
 	return parts[len(parts)-1]
 }
 
+// ValidateBranch and ValidateBaseRef expose the rules ValidateMembers applies
+// per field, so an interactive caller can reject a value as it is typed and
+// never collect one the structural path would refuse.
+func ValidateBranch(branch string) error {
+	return validateBranchName(branch)
+}
+
+func ValidateBaseRef(baseRef string) error {
+	return validateBaseRef(baseRef)
+}
+
 // ValidateMembers requires valid members with unique worktree directory names.
 func ValidateMembers(members []Member) error {
 	if len(members) == 0 {

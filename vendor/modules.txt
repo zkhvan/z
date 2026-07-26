@@ -1,3 +1,24 @@
+# charm.land/bubbles/v2 v2.0.0
+## explicit; go 1.24.2
+charm.land/bubbles/v2/cursor
+charm.land/bubbles/v2/filepicker
+charm.land/bubbles/v2/help
+charm.land/bubbles/v2/internal/memoization
+charm.land/bubbles/v2/internal/runeutil
+charm.land/bubbles/v2/key
+charm.land/bubbles/v2/spinner
+charm.land/bubbles/v2/textarea
+charm.land/bubbles/v2/textinput
+charm.land/bubbles/v2/viewport
+# charm.land/bubbletea/v2 v2.0.2
+## explicit; go 1.24.2
+charm.land/bubbletea/v2
+# charm.land/huh/v2 v2.0.3
+## explicit; go 1.25.8
+charm.land/huh/v2
+charm.land/huh/v2/internal/accessibility
+charm.land/huh/v2/internal/compat
+charm.land/huh/v2/internal/selector
 # charm.land/lipgloss/v2 v2.0.5
 ## explicit; go 1.25.0
 charm.land/lipgloss/v2
@@ -7,10 +28,13 @@ github.com/MakeNowJust/heredoc/v2
 # github.com/atotto/clipboard v0.1.4
 ## explicit
 github.com/atotto/clipboard
+# github.com/catppuccin/go v0.2.0
+## explicit; go 1.19
+github.com/catppuccin/go
 # github.com/charmbracelet/colorprofile v0.4.3
 ## explicit; go 1.25.0
 github.com/charmbracelet/colorprofile
-# github.com/charmbracelet/ultraviolet v0.0.0-20251205161215-1948445e3318
+# github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8
 ## explicit; go 1.24.2
 github.com/charmbracelet/ultraviolet
 # github.com/charmbracelet/x/ansi v0.11.7
@@ -18,6 +42,12 @@ github.com/charmbracelet/ultraviolet
 github.com/charmbracelet/x/ansi
 github.com/charmbracelet/x/ansi/kitty
 github.com/charmbracelet/x/ansi/parser
+# github.com/charmbracelet/x/exp/ordered v0.1.0
+## explicit; go 1.21
+github.com/charmbracelet/x/exp/ordered
+# github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0
+## explicit; go 1.19
+github.com/charmbracelet/x/exp/strings
 # github.com/charmbracelet/x/term v0.2.2
 ## explicit; go 1.24.0
 github.com/charmbracelet/x/term
@@ -33,6 +63,9 @@ github.com/clipperhouse/displaywidth
 # github.com/clipperhouse/uax29/v2 v2.7.0
 ## explicit; go 1.18
 github.com/clipperhouse/uax29/v2/graphemes
+# github.com/dustin/go-humanize v1.0.1
+## explicit; go 1.16
+github.com/dustin/go-humanize
 # github.com/fsnotify/fsnotify v1.9.0
 ## explicit; go 1.17
 github.com/fsnotify/fsnotify
@@ -72,6 +105,9 @@ github.com/mattn/go-runewidth
 # github.com/mitchellh/copystructure v1.2.0
 ## explicit; go 1.15
 github.com/mitchellh/copystructure
+# github.com/mitchellh/hashstructure/v2 v2.0.2
+## explicit; go 1.14
+github.com/mitchellh/hashstructure/v2
 # github.com/mitchellh/reflectwalk v1.0.2
 ## explicit
 github.com/mitchellh/reflectwalk
@@ -100,7 +136,7 @@ github.com/xo/terminfo
 # go.yaml.in/yaml/v3 v3.0.4
 ## explicit; go 1.16
 go.yaml.in/yaml/v3
-# golang.org/x/sync v0.18.0
+# golang.org/x/sync v0.19.0
 ## explicit; go 1.24.0
 golang.org/x/sync/errgroup
 # golang.org/x/sys v0.46.0

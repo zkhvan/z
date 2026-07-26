@@ -63,5 +63,11 @@ func NewService(config cmdutil.Config, opts ...ServiceOption) (*Service, error) 
 		opt(s)
 	}
 
+	// Normalizing only inside WithCacheDir left the zero value pointing at "",
+	// so a caller that never set one hit mkdir("") on the first cache write.
+	if s.cacheDir == "" {
+		s.cacheDir = fcache.NormalizeCacheDir("")
+	}
+
 	return s, nil
 }
