@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/exec"
@@ -74,9 +75,36 @@ func NewService(cfg cmdutil.Config, opts ...ServiceOption) (*Service, error) {
 	return s, nil
 }
 
+// CreateOptions carries every create-time input. One entry point keeps the
+// --from/--member exclusion at the domain boundary, and gives later create-time
+// concerns (hooks, sync state) a single place to land.
+type CreateOptions struct {
+	// Members declares the member set directly.
+	Members []Member
+
+	// From names a definition to seed the member set from. Mutually exclusive
+	// with Members.
+	From string
+
+	// BranchOverrides replaces the pattern-derived branch for individual
+	// members, keyed by base name or full remote ID. Requires From.
+	BranchOverrides map[string]string
+}
+
 // Create validates input and writes the manifest atomically. Offline only.
-func (s *Service) Create(_ context.Context, name string, members []Member) error {
+func (s *Service) Create(_ context.Context, name string, opts CreateOptions) error {
 	if err := ValidateName(name); err != nil {
+		return err
+	}
+	if opts.From != "" && len(opts.Members) > 0 {
+		return fmt.Errorf("cannot combine a definition with explicit members")
+	}
+	if opts.From == "" && len(opts.BranchOverrides) > 0 {
+		return fmt.Errorf("branch overrides require a definition")
+	}
+
+	members, err := s.resolveCreateMembers(name, opts)
+	if err != nil {
 		return err
 	}
 	if err := ValidateMembers(members); err != nil {
@@ -89,14 +117,176 @@ func (s *Service) Create(_ context.Context, name string, members []Member) error
 	}
 
 	mf := manifest{
-		Version: manifestVersion,
-		Members: make([]manifestMember, len(members)),
+		Version:    manifestVersion,
+		Definition: opts.From,
+		Members:    make([]manifestMember, len(members)),
 	}
 	for i, m := range members {
 		mf.Members[i] = manifestMemberFromMember(m)
 	}
 
 	return writeManifest(instanceDir, mf)
+}
+
+// resolveCreateMembers produces the final member set before anything is
+// written, so a failed resolution leaves no partial instance behind.
+func (s *Service) resolveCreateMembers(name string, opts CreateOptions) ([]Member, error) {
+	if opts.From == "" {
+		return opts.Members, nil
+	}
+
+	def, err := s.Definition(opts.From)
+	if err != nil {
+		return nil, err
+	}
+	if def.Broken() {
+		return nil, fmt.Errorf("definition %q is not usable: %w", def.Name, def.Err)
+	}
+	if len(def.Members) == 0 {
+		return nil, fmt.Errorf("definition %q has no members: add them to %s",
+			def.Name, filepath.Join(def.Dir, definitionManifestRelPath))
+	}
+
+	members := make([]Member, len(def.Members))
+	for i, dm := range def.Members {
+		branch, err := ResolveBranch(def.BranchPattern, name, dm.Repo)
+		if err != nil {
+			return nil, err
+		}
+		members[i] = Member{Repo: dm.Repo, Branch: branch, BaseRef: dm.BaseRef}
+	}
+
+	if err := applyBranchOverrides(members, opts.BranchOverrides); err != nil {
+		return nil, err
+	}
+
+	return members, nil
+}
+
+// applyBranchOverrides matches each key against a member's base name or full
+// remote ID. Base names cannot contain "/" and are unique within a workspace,
+// so neither form can match two members.
+func applyBranchOverrides(members []Member, overrides map[string]string) error {
+	if len(overrides) == 0 {
+		return nil
+	}
+
+	matched := make(map[int]string)
+	for _, key := range sortedKeys(overrides) {
+		idx := -1
+		for i, m := range members {
+			if m.Repo == key || m.BaseName() == key {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			return fmt.Errorf("no member %q; definition members are %s",
+				key, strings.Join(memberRepos(members), ", "))
+		}
+		if prev, ok := matched[idx]; ok {
+			return fmt.Errorf("branch overrides %q and %q both target member %q",
+				prev, key, members[idx].Repo)
+		}
+		matched[idx] = key
+		members[idx].Branch = overrides[key]
+	}
+
+	return nil
+}
+
+func memberRepos(members []Member) []string {
+	repos := make([]string, len(members))
+	for i, m := range members {
+		repos[i] = m.Repo
+	}
+	return repos
+}
+
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// InitDefinition scaffolds a definition directory. The result is intentionally
+// not yet instantiable: it has no members until the user adds them.
+func (s *Service) InitDefinition(_ context.Context, name string) (string, error) {
+	if err := ValidateDefinitionName(name); err != nil {
+		return "", err
+	}
+
+	dir := filepath.Join(s.cfg.DefinitionsRoot, name)
+	if _, err := os.Stat(dir); err == nil {
+		return "", fmt.Errorf("definition %q already exists at %s", name, dir)
+	}
+
+	dotZ := filepath.Join(dir, ".z")
+	if err := os.MkdirAll(dotZ, 0o700); err != nil {
+		return "", fmt.Errorf("creating definition directory: %w", err)
+	}
+
+	path := filepath.Join(dotZ, "definition.yaml")
+	contents := fmt.Sprintf(definitionTemplate, definitionVersion)
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		return "", fmt.Errorf("writing definition manifest: %w", err)
+	}
+
+	return dir, nil
+}
+
+// Definition loads one definition by name from the configured root.
+func (s *Service) Definition(name string) (Definition, error) {
+	if err := ValidateDefinitionName(name); err != nil {
+		return Definition{}, err
+	}
+
+	def, err := readDefinition(s.cfg.DefinitionsRoot, name)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Definition{}, fmt.Errorf("definition %q not found: missing %s",
+				name, filepath.Join(s.cfg.DefinitionsRoot, name, definitionManifestRelPath))
+		}
+		return Definition{}, err
+	}
+
+	return def, nil
+}
+
+// ListDefinitions returns definitions one level under the root, sorted by name.
+// Directories without a definition manifest are skipped; directories with one
+// that cannot be used are reported with Err set, because the marker file says
+// a definition was intended.
+func (s *Service) ListDefinitions(_ context.Context) ([]Definition, error) {
+	entries, err := os.ReadDir(s.cfg.DefinitionsRoot)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading definitions root %s: %w", s.cfg.DefinitionsRoot, err)
+	}
+
+	var defs []Definition
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+
+		def, err := readDefinition(s.cfg.DefinitionsRoot, e.Name())
+		if err != nil {
+			continue // not a definition directory
+		}
+		defs = append(defs, def)
+	}
+
+	sort.Slice(defs, func(i, j int) bool {
+		return defs[i].Name < defs[j].Name
+	})
+
+	return defs, nil
 }
 
 // List returns instances one level under the root, sorted by name.

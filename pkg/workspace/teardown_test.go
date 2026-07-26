@@ -77,9 +77,9 @@ func TestArchive_never_materialized_instance_is_a_noop(t *testing.T) {
 	requireGit(t)
 	td, svc := setupTeardownTest(t)
 	initGitRepo(t, filepath.Join(td.projects, "owner", "repo"))
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/login", BaseRef: "main"},
-	}))
+	}}))
 
 	err := svc.Archive(context.Background(), "login", workspace.TeardownOptions{})
 	assert.NoError(t, err)
@@ -187,9 +187,9 @@ func TestArchive_deregisters_prunable_registration(t *testing.T) {
 func TestArchive_missing_canonical_clone_errors(t *testing.T) {
 	requireGit(t)
 	td, svc := setupTeardownTest(t)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/login", BaseRef: "main"},
-	}))
+	}}))
 	orphan := filepath.Join(td.workspaces, "login", "repo")
 	writeFile(t, filepath.Join(orphan, "work.txt"), "unrecoverable\n")
 
@@ -203,9 +203,9 @@ func TestArchive_missing_canonical_clone_errors(t *testing.T) {
 func TestArchive_force_removes_orphaned_member_directory(t *testing.T) {
 	requireGit(t)
 	td, svc := setupTeardownTest(t)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/login", BaseRef: "main"},
-	}))
+	}}))
 	orphan := filepath.Join(td.workspaces, "login", "repo")
 	writeFile(t, filepath.Join(orphan, "work.txt"), "unrecoverable\n")
 
@@ -360,9 +360,9 @@ func TestMaterialize_prunable_conflict_names_the_remedy(t *testing.T) {
 	if err := os.RemoveAll(filepath.Join(td.workspaces, "abandoned")); err != nil {
 		t.Fatalf("remove instance directory: %v", err)
 	}
-	assert.NoError(t, svc.Create(context.Background(), "retry", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "retry", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/login", BaseRef: "main"},
-	}))
+	}}))
 
 	err := svc.Materialize(context.Background(), "retry")
 
@@ -386,7 +386,7 @@ workspaces:
 
 func createAndMaterialize(t *testing.T, svc *workspace.Service, name string, members ...workspace.Member) {
 	t.Helper()
-	assert.NoError(t, svc.Create(context.Background(), name, members))
+	assert.NoError(t, svc.Create(context.Background(), name, workspace.CreateOptions{Members: members}))
 	assert.NoError(t, svc.Materialize(context.Background(), name))
 }
 

@@ -20,7 +20,12 @@ var ErrNotFound = errors.New("key not found")
 var _ cmdutil.Config = (*provider)(nil)
 
 type provider struct {
-	k *koanf.Koanf
+	k   *koanf.Koanf
+	dir string
+}
+
+func (p *provider) Dir() string {
+	return p.dir
 }
 
 // List implements cmdutil.Config.
@@ -135,15 +140,17 @@ func NewWithDir(dir string) (cmdutil.Config, error) {
 
 	path := filepath.Join(dir, "config.yaml")
 
+	// The dir is recorded even with no config.yaml: a fresh install still needs
+	// defaults derived from it.
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return &provider{k: k}, nil
+		return &provider{k: k, dir: dir}, nil
 	}
 
 	if err := k.Load(file.Provider(path), yaml.Parser()); err != nil {
 		return nil, err
 	}
 
-	return &provider{k: k}, nil
+	return &provider{k: k, dir: dir}, nil
 }
 
 func IsNotFound(err error) bool {

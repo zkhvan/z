@@ -64,7 +64,7 @@ workspaces:
 		{Repo: "zkhvan/api", Branch: "feature/login", BaseRef: ""},
 	}
 
-	err = svc.Create(context.Background(), "login-feature", members)
+	err = svc.Create(context.Background(), "login-feature", workspace.CreateOptions{Members: members})
 	assert.NoError(t, err)
 
 	manifestPath := filepath.Join(td.workspaces, "login-feature", ".z", "instance.yaml")
@@ -105,7 +105,7 @@ workspaces:
 		{Repo: "zkhvan/docs", Branch: "feature/auth"},
 	}
 
-	assert.NoError(t, svc.Create(context.Background(), "auth", members))
+	assert.NoError(t, svc.Create(context.Background(), "auth", workspace.CreateOptions{Members: members}))
 
 	data, err := os.ReadFile(filepath.Join(td.workspaces, "auth", ".z", "instance.yaml"))
 	assert.NoError(t, err)
@@ -129,7 +129,7 @@ func TestCreate_ZeroMembers_Error(t *testing.T) {
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
 
-	err = svc.Create(context.Background(), "empty", nil)
+	err = svc.Create(context.Background(), "empty", workspace.CreateOptions{})
 	if err == nil {
 		t.Fatal("expected error for zero members, got nil")
 	}
@@ -141,9 +141,9 @@ func TestCreate_InvalidName_Error(t *testing.T) {
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
 
-	err = svc.Create(context.Background(), ".hidden", []workspace.Member{
+	err = svc.Create(context.Background(), ".hidden", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "main"},
-	})
+	}})
 	if err == nil {
 		t.Fatal("expected error for invalid name, got nil")
 	}
@@ -159,10 +159,10 @@ workspaces:
 	assert.NoError(t, err)
 
 	members := []workspace.Member{{Repo: "owner/repo", Branch: "main"}}
-	assert.NoError(t, svc.Create(context.Background(), "dupe", members))
+	assert.NoError(t, svc.Create(context.Background(), "dupe", workspace.CreateOptions{Members: members}))
 
 	// Second create with the same name must fail.
-	err = svc.Create(context.Background(), "dupe", members)
+	err = svc.Create(context.Background(), "dupe", workspace.CreateOptions{Members: members})
 	if err == nil {
 		t.Fatal("expected error for existing workspace directory, got nil")
 	}
@@ -177,9 +177,9 @@ workspaces:
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
 
-	err = svc.Create(context.Background(), "unsafe", []workspace.Member{
+	err = svc.Create(context.Background(), "unsafe", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/..", Branch: "main"},
-	})
+	}})
 	if err == nil {
 		t.Fatal("expected error for unsafe repo ID, got nil")
 	}
@@ -197,9 +197,9 @@ workspaces:
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
 
-	err = svc.Create(context.Background(), "unsafe", []workspace.Member{
+	err = svc.Create(context.Background(), "unsafe", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "-feature"},
-	})
+	}})
 	if err == nil {
 		t.Fatal("expected error for unsafe branch, got nil")
 	}
@@ -217,9 +217,9 @@ workspaces:
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
 
-	err = svc.Create(context.Background(), "unsafe", []workspace.Member{
+	err = svc.Create(context.Background(), "unsafe", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature", BaseRef: "-base"},
-	})
+	}})
 	if err == nil {
 		t.Fatal("expected error for unsafe base ref, got nil")
 	}
@@ -238,10 +238,10 @@ workspaces:
 	assert.NoError(t, err)
 
 	// Both zkhvan/api and other/api resolve to base name "api".
-	err = svc.Create(context.Background(), "conflict", []workspace.Member{
+	err = svc.Create(context.Background(), "conflict", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "zkhvan/api", Branch: "main"},
 		{Repo: "other/api", Branch: "main"},
-	})
+	}})
 	if err == nil {
 		t.Fatal("expected error for duplicate base name, got nil")
 	}
@@ -265,12 +265,12 @@ workspaces:
 	assert.NoError(t, err)
 
 	// Create two instances out of alphabetical order.
-	assert.NoError(t, svc.Create(context.Background(), "zebra", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "zebra", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "main"},
-	}))
-	assert.NoError(t, svc.Create(context.Background(), "alpha", []workspace.Member{
+	}}))
+	assert.NoError(t, svc.Create(context.Background(), "alpha", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/other", Branch: "feat"},
-	}))
+	}}))
 
 	instances, err := svc.List(context.Background())
 	assert.NoError(t, err)
@@ -331,9 +331,9 @@ workspaces:
 	assert.NoError(t, os.MkdirAll(filepath.Join(td.workspaces, "stray"), 0o700))
 
 	// Create one real instance.
-	assert.NoError(t, svc.Create(context.Background(), "real", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "real", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "main"},
-	}))
+	}}))
 
 	instances, err := svc.List(context.Background())
 	assert.NoError(t, err)
@@ -355,9 +355,9 @@ workspaces:
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
 
-	assert.NoError(t, svc.Create(context.Background(), "ws", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "ws", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "main"},
-	}))
+	}}))
 
 	instances, err := svc.List(context.Background())
 	assert.NoError(t, err)
@@ -381,9 +381,9 @@ workspaces:
 `)
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "ws", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "ws", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "main"},
-	}))
+	}}))
 	assert.NoError(t, os.WriteFile(filepath.Join(td.workspaces, "ws", ".z", "materialized"), nil, 0o600))
 
 	instances, err := svc.List(context.Background())

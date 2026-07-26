@@ -51,7 +51,7 @@ func TestCreate_no_members_outside_a_terminal_fails_loudly(t *testing.T) {
 
 	err := h.run("empty")
 
-	wstest.AssertErrorContains(t, err, "pass --member, or run interactively")
+	wstest.AssertErrorContains(t, err, "pass --member or --from, or run interactively")
 	h.NoWorkspace("empty")
 }
 
@@ -106,4 +106,231 @@ func TestCreate_existing_instance_is_rejected(t *testing.T) {
 
 	// The seeded manifest must be untouched (still empty, no members).
 	h.Workspace("dupe").MemberCount(0)
+}
+
+func TestCreate_from_definition_seeds_members(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}",
+		workspace.Member{Repo: "acme/api", BaseRef: "develop"},
+		workspace.Member{Repo: "acme/ui"},
+	)
+
+	if err := h.run("login", "--from", "api-feature"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h.Workspace("login").
+		HasVersion(1).
+		HasDefinition("api-feature").
+		MemberCount(2).
+		HasMember("acme/api", "feat/login", "develop").
+		HasMember("acme/ui", "feat/login", "")
+}
+
+func TestCreate_from_definition_substitutes_repo_base_name(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}-{repo}",
+		workspace.Member{Repo: "acme/api"},
+		workspace.Member{Repo: "acme/ui"},
+	)
+
+	if err := h.run("login", "--from", "api-feature"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h.Workspace("login").
+		HasMember("acme/api", "feat/login-api", "").
+		HasMember("acme/ui", "feat/login-ui", "")
+}
+
+func TestCreate_from_definition_without_a_pattern_uses_the_default(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "", workspace.Member{Repo: "acme/api"})
+
+	if err := h.run("login", "--from", "api-feature"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h.Workspace("login").HasMember("acme/api", "login", "")
+}
+
+// The headline promise: the same definition instantiated twice yields branches
+// that do not collide, with no extra machinery.
+func TestCreate_parallel_instances_get_non_colliding_branches(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}",
+		workspace.Member{Repo: "acme/api"},
+		workspace.Member{Repo: "acme/ui"},
+	)
+
+	if err := h.run("attempt-a", "--from", "api-feature"); err != nil {
+		t.Fatalf("create attempt-a: %v", err)
+	}
+	if err := h.run("attempt-b", "--from", "api-feature"); err != nil {
+		t.Fatalf("create attempt-b: %v", err)
+	}
+
+	for _, repo := range []string{"acme/api", "acme/ui"} {
+		a := h.Workspace("attempt-a").BranchFor(repo)
+		b := h.Workspace("attempt-b").BranchFor(repo)
+		if a == b {
+			t.Fatalf("member %q got the same branch %q in both instances", repo, a)
+		}
+	}
+
+	h.Workspace("attempt-a").HasMember("acme/api", "feat/attempt-a", "")
+	h.Workspace("attempt-b").HasMember("acme/api", "feat/attempt-b", "")
+}
+
+func TestCreate_branch_override_by_base_name(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}",
+		workspace.Member{Repo: "acme/api", BaseRef: "develop"},
+		workspace.Member{Repo: "acme/ui"},
+	)
+
+	err := h.run("login", "--from", "api-feature", "--branch", "api=hotfix/urgent")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// The override replaces one field; base_ref still comes from the definition.
+	h.Workspace("login").
+		HasMember("acme/api", "hotfix/urgent", "develop").
+		HasMember("acme/ui", "feat/login", "")
+}
+
+func TestCreate_branch_override_by_remote_id(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+
+	if err := h.run("login", "--from", "api-feature", "--branch", "acme/api=hotfix/urgent"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h.Workspace("login").HasMember("acme/api", "hotfix/urgent", "")
+}
+
+func TestCreate_branch_override_for_unknown_member(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+
+	err := h.run("login", "--from", "api-feature", "--branch", "db=x")
+
+	wstest.AssertErrorContains(t, err, "no member \"db\"")
+	wstest.AssertErrorContains(t, err, "acme/api")
+	h.NoWorkspace("login")
+}
+
+func TestCreate_duplicate_branch_override_key(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+
+	err := h.run("login", "--from", "api-feature", "--branch", "api=x", "--branch", "api=y")
+
+	wstest.AssertErrorContains(t, err, "already has an override")
+	h.NoWorkspace("login")
+}
+
+func TestCreate_two_branch_override_keys_for_one_member(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+
+	err := h.run("login", "--from", "api-feature", "--branch", "api=x", "--branch", "acme/api=y")
+
+	wstest.AssertErrorContains(t, err, "both target member")
+	h.NoWorkspace("login")
+}
+
+func TestCreate_malformed_branch_override(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+
+	err := h.run("login", "--from", "api-feature", "--branch", "api")
+
+	wstest.AssertErrorContains(t, err, "expected <repo>=<branch>")
+	h.NoWorkspace("login")
+}
+
+func TestCreate_branch_override_with_invalid_branch(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+
+	err := h.run("login", "--from", "api-feature", "--branch", "api=bad branch")
+
+	wstest.AssertErrorContains(t, err, "invalid branch")
+	h.NoWorkspace("login")
+}
+
+func TestCreate_branch_without_from_is_refused(t *testing.T) {
+	h := newCommandTest(t)
+
+	err := h.run("login", "--member", "acme/api@main", "--branch", "api=x")
+
+	wstest.AssertErrorContains(t, err, "--branch requires --from")
+	h.NoWorkspace("login")
+}
+
+func TestCreate_from_and_member_are_mutually_exclusive(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+
+	err := h.run("login", "--from", "api-feature", "--member", "acme/db@main")
+
+	wstest.AssertErrorContains(t, err, "mutually exclusive")
+	h.NoWorkspace("login")
+}
+
+func TestCreate_from_missing_definition(t *testing.T) {
+	h := newCommandTest(t)
+
+	err := h.run("login", "--from", "nope")
+
+	wstest.AssertErrorContains(t, err, "not found")
+	h.NoWorkspace("login")
+}
+
+func TestCreate_from_definition_with_no_members(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("scaffold", "feat/{instance}")
+
+	err := h.run("login", "--from", "scaffold")
+
+	wstest.AssertErrorContains(t, err, "has no members")
+	h.NoWorkspace("login")
+}
+
+func TestCreate_from_broken_definition(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("typo", "feat/{user}", workspace.Member{Repo: "acme/api"})
+
+	err := h.run("login", "--from", "typo")
+
+	wstest.AssertErrorContains(t, err, "not usable")
+	wstest.AssertErrorContains(t, err, "{user}")
+	h.NoWorkspace("login")
+}
+
+// The instance name is a legal dirname but not a legal branch: reported, never
+// slugified into something the user did not write.
+func TestCreate_from_definition_with_branch_unsafe_instance_name(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+
+	err := h.run("my feature", "--from", "api-feature")
+
+	wstest.AssertErrorContains(t, err, "feat/my feature")
+	h.NoWorkspace("my feature")
+}
+
+func TestCreate_from_takes_a_name_not_a_path(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+
+	err := h.run("login", "--from", "./api-feature")
+
+	if !errors.Is(err, workspace.ErrInvalidName) {
+		t.Fatalf("error %v does not wrap ErrInvalidName", err)
+	}
+	h.NoWorkspace("login")
 }

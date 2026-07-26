@@ -148,9 +148,9 @@ func TestCheckout_unmaterialized_member_is_rejected(t *testing.T) {
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/one", BaseRef: "main"},
-	}))
+	}}))
 
 	_, err = svc.Checkout(context.Background(), "login", "repo", "feature/two", workspace.CheckoutOptions{})
 	assertErrorContains(t, err, "is not materialized")
@@ -211,9 +211,9 @@ func TestCheckout_leaves_an_empty_base_ref_empty(t *testing.T) {
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/one"},
-	}))
+	}}))
 	assert.NoError(t, svc.Materialize(context.Background(), "login"))
 
 	_, err = svc.Checkout(context.Background(), "login", "repo", "feature/two", workspace.CheckoutOptions{
@@ -271,9 +271,9 @@ func TestCheckout_tracks_remote_branch_without_create(t *testing.T) {
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/one", BaseRef: "main"},
-	}))
+	}}))
 	assert.NoError(t, svc.Materialize(context.Background(), "login"))
 
 	result, err := svc.Checkout(context.Background(), "login", "repo", "feature/remote", workspace.CheckoutOptions{})
@@ -321,7 +321,7 @@ func setupMaterialized(t *testing.T, td serviceTestDir, members ...workspace.Mem
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", members))
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: members}))
 	assert.NoError(t, svc.Materialize(context.Background(), "login"))
 
 	return svc

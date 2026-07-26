@@ -27,9 +27,9 @@ workspaces:
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/login", BaseRef: "main"},
-	}))
+	}}))
 
 	err = svc.Materialize(context.Background(), "login")
 	assert.NoError(t, err)
@@ -76,9 +76,9 @@ workspaces:
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/login"},
-	}))
+	}}))
 
 	err = svc.Materialize(context.Background(), "login")
 	assert.NoError(t, err)
@@ -99,9 +99,9 @@ workspaces:
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/login", BaseRef: "main"},
-	}))
+	}}))
 	assert.NoError(t, svc.Materialize(context.Background(), "login"))
 
 	instances, err := svc.List(context.Background())
@@ -132,9 +132,9 @@ workspaces:
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "standalone", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "standalone", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/list", BaseRef: "main"},
-	}))
+	}}))
 
 	memberPath := filepath.Join(td.workspaces, "standalone", "repo")
 	initGitRepo(t, memberPath)
@@ -158,9 +158,9 @@ workspaces:
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/login", BaseRef: "main"},
-	}))
+	}}))
 	assert.NoError(t, svc.Materialize(context.Background(), "login"))
 
 	err = svc.Materialize(context.Background(), "login")
@@ -182,9 +182,9 @@ workspaces:
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/login", BaseRef: "main"},
-	}))
+	}}))
 	mkdirErr := os.MkdirAll(filepath.Join(td.workspaces, "login", "repo"), 0o700)
 	if mkdirErr != nil {
 		t.Fatalf("seed non-worktree dir: %v", mkdirErr)
@@ -208,9 +208,9 @@ workspaces:
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/other", BaseRef: "main"},
-	}))
+	}}))
 	worktree := filepath.Join(td.workspaces, "login", "repo")
 	runGit(t, "-C", canonical, "worktree", "add", "-b", "feature/login", worktree, "main")
 
@@ -234,9 +234,9 @@ workspaces:
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "main", BaseRef: "main"},
-	}))
+	}}))
 
 	err = svc.Materialize(context.Background(), "login")
 	assertErrorContains(t, err, "already checked out")
@@ -292,9 +292,9 @@ workspaces:
 
 	svc, err := workspace.NewService(cfg, workspace.WithExecutor(fake))
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/login", BaseRef: "main"},
-	}))
+	}}))
 
 	err = svc.Materialize(context.Background(), "login")
 	assert.NoError(t, err)
@@ -348,9 +348,9 @@ workspaces:
 
 	svc, err := workspace.NewService(cfg, workspace.WithExecutor(fake))
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo", Branch: "feature/login", BaseRef: "main"},
-	}))
+	}}))
 
 	err = svc.Materialize(context.Background(), "login")
 	assert.NoError(t, err)
@@ -375,10 +375,10 @@ workspaces:
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	assert.NoError(t, svc.Create(context.Background(), "login", []workspace.Member{
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{Members: []workspace.Member{
 		{Repo: "owner/repo1", Branch: "feature/login", BaseRef: "main"},
 		{Repo: "owner/repo2", Branch: "main", BaseRef: "main"},
-	}))
+	}}))
 
 	err = svc.Materialize(context.Background(), "login")
 	assertErrorContains(t, err, "already checked out")

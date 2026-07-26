@@ -1,5 +1,5 @@
 // Package wstest provides the shared world for workspace command tests: a
-// temporary config, workspaces root, and projects root, plus seeding and
+// temporary config, workspaces root, projects root, and definitions root, plus seeding and
 // assertion helpers. Command packages compose it with a thin local harness that
 // binds their own constructor.
 package wstest
@@ -23,12 +23,13 @@ import (
 )
 
 type Harness struct {
-	t            *testing.T
-	cfg          cmdutil.Config
-	root         string
-	projectsRoot string
-	out          bytes.Buffer
-	tty          bool
+	t               *testing.T
+	cfg             cmdutil.Config
+	root            string
+	projectsRoot    string
+	definitionsRoot string
+	out             bytes.Buffer
+	tty             bool
 }
 
 // WithTTY makes the command believe it is writing to a terminal. Terminal
@@ -38,8 +39,10 @@ func (h *Harness) WithTTY() *Harness {
 	return h
 }
 
-// New writes a config pointing at fresh temporary workspaces and projects
-// roots. Both are always set, so no test can accidentally reach the real ones.
+// New writes a config pointing at fresh temporary workspaces, projects, and
+// definitions roots. All three are always set, so no test can accidentally
+// reach the real ones — definition init writes, so an unset root would create
+// directories in the developer's own config dir.
 func New(t *testing.T) *Harness {
 	t.Helper()
 
@@ -47,12 +50,15 @@ func New(t *testing.T) *Harness {
 
 	cfgDir := t.TempDir()
 	h := &Harness{
-		t:            t,
-		root:         filepath.Join(t.TempDir(), "workspaces"),
-		projectsRoot: filepath.Join(t.TempDir(), "projects"),
+		t:               t,
+		root:            filepath.Join(t.TempDir(), "workspaces"),
+		projectsRoot:    filepath.Join(t.TempDir(), "projects"),
+		definitionsRoot: filepath.Join(t.TempDir(), "definitions"),
 	}
 
-	contents := fmt.Sprintf("workspaces:\n  root: %s\nprojects:\n  root: %s\n", h.root, h.projectsRoot)
+	contents := fmt.Sprintf(
+		"workspaces:\n  root: %s\n  definitions_root: %s\nprojects:\n  root: %s\n",
+		h.root, h.definitionsRoot, h.projectsRoot)
 	if err := os.WriteFile(filepath.Join(cfgDir, "config.yaml"), []byte(contents), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -114,6 +120,10 @@ func (h *Harness) Root() string {
 	return h.root
 }
 
+func (h *Harness) DefinitionsRoot() string {
+	return h.definitionsRoot
+}
+
 // InDir runs the rest of the test from a directory under the workspaces root,
 // with no arguments meaning the root itself. The current directory is one of
 // the few inputs argv cannot express.
@@ -144,9 +154,40 @@ func (h *Harness) SeedManifest(name, raw string) {
 	h.SeedFile(filepath.Join(name, ".z", "instance.yaml"), raw)
 }
 
+// SeedDefinition writes a definition manifest without running the command under
+// test. An empty pattern omits the field, exercising the default.
+func (h *Harness) SeedDefinition(name, pattern string, members ...workspace.Member) {
+	h.t.Helper()
+
+	var b strings.Builder
+	fmt.Fprint(&b, "version: 1\n")
+	if pattern != "" {
+		fmt.Fprintf(&b, "branch_pattern: %q\n", pattern)
+	}
+	fmt.Fprint(&b, "members:\n")
+	for _, m := range members {
+		fmt.Fprintf(&b, "  - repo: %s\n", m.Repo)
+		if m.BaseRef != "" {
+			fmt.Fprintf(&b, "    base_ref: %s\n", m.BaseRef)
+		}
+	}
+	h.SeedDefinitionManifest(name, b.String())
+}
+
+// SeedDefinitionManifest writes raw definition content, for malformed manifests.
+func (h *Harness) SeedDefinitionManifest(name, raw string) {
+	h.t.Helper()
+	h.seedUnder(h.definitionsRoot, filepath.Join(name, ".z", "definition.yaml"), raw)
+}
+
 func (h *Harness) SeedFile(relPath, content string) {
 	h.t.Helper()
-	path := filepath.Join(h.root, relPath)
+	h.seedUnder(h.root, relPath, content)
+}
+
+func (h *Harness) seedUnder(base, relPath, content string) {
+	h.t.Helper()
+	path := filepath.Join(base, relPath)
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		h.t.Fatalf("seed parent of %q: %v", relPath, err)
 	}
@@ -173,6 +214,21 @@ func (h *Harness) PathMissing(relPath string) {
 	h.t.Helper()
 	if _, err := os.Stat(filepath.Join(h.root, relPath)); !os.IsNotExist(err) {
 		h.t.Fatalf("expected %s to be missing, stat error: %v", relPath, err)
+	}
+}
+
+func (h *Harness) DefinitionFileExists(relPath string) {
+	h.t.Helper()
+	if _, err := os.Stat(filepath.Join(h.definitionsRoot, relPath)); err != nil {
+		h.t.Fatalf("expected %s to exist under the definitions root: %v", relPath, err)
+	}
+}
+
+func (h *Harness) NoDefinition(name string) {
+	h.t.Helper()
+	path := filepath.Join(h.definitionsRoot, name, ".z", "definition.yaml")
+	if _, err := os.Stat(path); err == nil {
+		h.t.Fatalf("definition %q unexpectedly exists", name)
 	}
 }
 

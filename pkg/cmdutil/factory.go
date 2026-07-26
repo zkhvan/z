@@ -39,4 +39,9 @@ type Config interface {
 	Get(path string) any
 	List() string
 	Unmarshal(path string, v any) error
+
+	// Dir is the directory the configuration was loaded from, whether or not it
+	// holds a config.yaml. Defaults derived from it follow a test or
+	// Z_CONFIG_DIR override instead of reaching the real user config dir.
+	Dir() string
 }

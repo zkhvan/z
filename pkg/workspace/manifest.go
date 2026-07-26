@@ -14,8 +14,13 @@ const manifestVersion = 1
 // manifest is the on-disk instance file. Name and status are never stored;
 // they are derived from disk.
 type manifest struct {
-	Version int              `yaml:"version"`
-	Members []manifestMember `yaml:"members"`
+	Version int `yaml:"version"`
+	// Definition is the name of the source definition, resolved against the
+	// configured definitions root. A path would not survive relocating that
+	// root. The branch pattern is deliberately not recorded: it is a create-time
+	// seed, and the branches below are already its result.
+	Definition string           `yaml:"definition,omitempty"`
+	Members    []manifestMember `yaml:"members"`
 }
 
 type manifestMember struct {

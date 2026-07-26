@@ -16,9 +16,15 @@ type Member struct {
 	State MemberState
 }
 
-// BaseName is the worktree directory name (the part after the last "/").
+// BaseName is the worktree directory name (the part after the last "/"). It is
+// also the {repo} substitution and a --branch key, so all three agree by
+// construction.
 func (m Member) BaseName() string {
-	parts := strings.Split(m.Repo, "/")
+	return baseName(m.Repo)
+}
+
+func baseName(repo string) string {
+	parts := strings.Split(repo, "/")
 	return parts[len(parts)-1]
 }
 
@@ -35,6 +41,18 @@ func ValidateBaseRef(baseRef string) error {
 
 // ValidateMembers requires valid members with unique worktree directory names.
 func ValidateMembers(members []Member) error {
+	return validateMembers(members, true)
+}
+
+// validateDefinitionMembers applies every rule except the branch one. A
+// definition member has no branch by design — the pattern supplies it at
+// create time — so the branch rule is skipped rather than satisfied with an
+// invented value.
+func validateDefinitionMembers(members []Member) error {
+	return validateMembers(members, false)
+}
+
+func validateMembers(members []Member, requireBranch bool) error {
 	if len(members) == 0 {
 		return fmt.Errorf("workspace must have at least one member")
 	}
@@ -44,8 +62,10 @@ func ValidateMembers(members []Member) error {
 		if err := validateRepoID(m.Repo); err != nil {
 			return fmt.Errorf("invalid member repo %q: %w", m.Repo, err)
 		}
-		if err := validateBranchName(m.Branch); err != nil {
-			return fmt.Errorf("invalid member branch %q: %w", m.Branch, err)
+		if requireBranch {
+			if err := validateBranchName(m.Branch); err != nil {
+				return fmt.Errorf("invalid member branch %q: %w", m.Branch, err)
+			}
 		}
 		if err := validateBaseRef(m.BaseRef); err != nil {
 			return fmt.Errorf("invalid member base ref %q: %w", m.BaseRef, err)
