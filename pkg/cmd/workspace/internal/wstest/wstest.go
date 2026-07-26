@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/colorprofile"
 	"github.com/spf13/cobra"
 
 	"github.com/zkhvan/z/pkg/cmdutil"
@@ -27,12 +28,22 @@ type Harness struct {
 	root         string
 	projectsRoot string
 	out          bytes.Buffer
+	tty          bool
+}
+
+// WithTTY makes the command believe it is writing to a terminal. Terminal
+// capability is one of the few inputs argv cannot express.
+func (h *Harness) WithTTY() *Harness {
+	h.tty = true
+	return h
 }
 
 // New writes a config pointing at fresh temporary workspaces and projects
 // roots. Both are always set, so no test can accidentally reach the real ones.
 func New(t *testing.T) *Harness {
 	t.Helper()
+
+	clearNoColor(t)
 
 	cfgDir := t.TempDir()
 	h := &Harness{
@@ -62,8 +73,14 @@ func New(t *testing.T) *Harness {
 func (h *Harness) Run(newCmd func(*cmdutil.Factory) *cobra.Command, args ...string) error {
 	h.t.Helper()
 
+	streams := &iolib.IOStreams{In: strings.NewReader(""), Out: &h.out, ErrOut: io.Discard}
+	streams.SetTerminal(h.tty)
+	if h.tty {
+		streams.SetColorProfile(colorprofile.TrueColor)
+	}
+
 	f := &cmdutil.Factory{
-		IOStreams: &iolib.IOStreams{In: strings.NewReader(""), Out: &h.out, ErrOut: io.Discard},
+		IOStreams: streams,
 		Config:    h.cfg,
 	}
 
@@ -75,6 +92,22 @@ func (h *Harness) Run(newCmd func(*cmdutil.Factory) *cobra.Command, args ...stri
 	cmd.SetErr(io.Discard)
 
 	return cmd.Execute()
+}
+
+// clearNoColor keeps a developer's own NO_COLOR out of the world, so a test
+// asserting colored output cannot pass for the wrong reason. Tests that want
+// NO_COLOR set it themselves, after New.
+func clearNoColor(t *testing.T) {
+	t.Helper()
+
+	previous, ok := os.LookupEnv("NO_COLOR")
+	if !ok {
+		return
+	}
+	if err := os.Unsetenv("NO_COLOR"); err != nil {
+		t.Fatalf("unset NO_COLOR: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Setenv("NO_COLOR", previous) })
 }
 
 func (h *Harness) Root() string {
@@ -141,6 +174,10 @@ func (h *Harness) NoWorkspace(name string) {
 	if _, err := os.Stat(path); err == nil {
 		h.t.Fatalf("workspace %q unexpectedly exists", name)
 	}
+}
+
+func (h *Harness) Output() string {
+	return h.out.String()
 }
 
 func (h *Harness) OutputContains(want string) {

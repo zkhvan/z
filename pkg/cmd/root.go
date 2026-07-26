@@ -26,6 +26,10 @@ func NewCmdRoot(f *cmdutil.Factory, version, date string) (*cobra.Command, error
 			"versionInfo": versionCmd.Format(version, date),
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if noColor, err := cmd.Flags().GetBool("no-color"); err == nil && noColor && f.IOStreams != nil {
+				f.IOStreams.SetColorDisabled(true)
+			}
+
 			if cmd.Name() == cobra.ShellCompRequestCmd {
 				// This is the __complete or __completeNoDesc command which
 				// indicates shell completion has been requested.
@@ -37,6 +41,7 @@ func NewCmdRoot(f *cmdutil.Factory, version, date string) (*cobra.Command, error
 	}
 
 	cmd.PersistentFlags().Bool("help", false, "Show help for command")
+	cmd.PersistentFlags().Bool("no-color", false, "Disable color output")
 
 	cmd.SilenceErrors = true
 	cmd.SilenceUsage = true

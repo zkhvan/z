@@ -1,8 +1,6 @@
 package factory
 
 import (
-	"os"
-
 	"github.com/zkhvan/z/pkg/cmd"
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/config"
@@ -23,8 +21,7 @@ func New(appVersion string) *cmdutil.Factory {
 }
 
 func ioStreams(_ *cmdutil.Factory) *iolib.IOStreams {
-	io := &iolib.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr}
-	return io
+	return iolib.System()
 }
 
 func defaultPluginHandler(_ *cmdutil.Factory) cmdutil.PluginHandler {
