@@ -11,6 +11,10 @@ import (
 type Worktree struct {
 	Path   string
 	Branch string
+	// Prunable means the gitdir points to a non-existent location right now —
+	// a deleted worktree, but also one on an unmounted volume, so it must never
+	// drive automatic pruning.
+	Prunable bool
 }
 
 type WorktreeAddOptions struct {
@@ -28,6 +32,34 @@ func (c *Client) WorktreeAdd(ctx context.Context, opts WorktreeAddOptions) error
 	} else {
 		args = append(args, "--", opts.WorktreePath, opts.Branch)
 	}
+
+	cmd := c.executor.CommandContext(ctx, "git", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		output = bytes.TrimSpace(output)
+		if len(output) > 0 {
+			return fmt.Errorf("error running command %q: %w: %s", cmd.String(), err, output)
+		}
+		return fmt.Errorf("error running command %q: %w", cmd.String(), err)
+	}
+	return nil
+}
+
+type WorktreeRemoveOptions struct {
+	RepoPath     string
+	WorktreePath string
+	Force        bool
+}
+
+// WorktreeRemove deregisters a worktree in the canonical repo. It succeeds even
+// when the worktree directory has already been deleted, which is what makes
+// teardown idempotent without pruning.
+func (c *Client) WorktreeRemove(ctx context.Context, opts WorktreeRemoveOptions) error {
+	args := []string{"-C", opts.RepoPath, "worktree", "remove"}
+	if opts.Force {
+		args = append(args, "--force")
+	}
+	args = append(args, "--", opts.WorktreePath)
 
 	cmd := c.executor.CommandContext(ctx, "git", args...)
 	output, err := cmd.CombinedOutput()
@@ -72,6 +104,10 @@ func parseWorktreeList(output string) []Worktree {
 		}
 		if branch, ok := strings.CutPrefix(line, "branch "); ok && current != nil {
 			current.Branch = strings.TrimPrefix(branch, "refs/heads/")
+			continue
+		}
+		if strings.HasPrefix(line, "prunable") && current != nil {
+			current.Prunable = true
 		}
 	}
 	flush()

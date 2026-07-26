@@ -69,6 +69,12 @@ func (s *Service) materializeMember(ctx context.Context, instanceDir string, m M
 	}
 
 	if conflict := findWorktreeByBranch(worktrees, m.Branch); conflict != nil {
+		if conflict.Prunable {
+			return fmt.Errorf(
+				"branch %q is registered to a missing worktree at %s; "+
+					"if that path is gone for good, run `git -C %s worktree prune`",
+				m.Branch, conflict.Path, canonicalPath)
+		}
 		return fmt.Errorf("branch %q is already checked out at %s", m.Branch, conflict.Path)
 	}
 
