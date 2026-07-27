@@ -18,6 +18,9 @@ type Definition struct {
 	Dir           string
 	BranchPattern string
 	Members       []Member // Branch is always empty; the pattern supplies it
+	// SyncIgnore excludes definition-authored content from sync. It is the
+	// definition author's tier; z's structural exclusions are not overridable.
+	SyncIgnore []string
 
 	// Err is set when the directory holds a definition manifest that cannot be
 	// used. The definition is still reported, because the marker file is
@@ -34,6 +37,17 @@ type definitionManifest struct {
 	Version       int                        `yaml:"version"`
 	BranchPattern string                     `yaml:"branch_pattern,omitempty"`
 	Members       []definitionManifestMember `yaml:"members"`
+	Sync          definitionManifestSync     `yaml:"sync,omitempty"`
+}
+
+// definitionManifestSync is the reserved namespace for sync configuration.
+// Per-file policy (ZK-16) lands here alongside ignore.
+type definitionManifestSync struct {
+	Ignore definitionManifestIgnore `yaml:"ignore,omitempty"`
+}
+
+type definitionManifestIgnore struct {
+	Paths []string `yaml:"paths,omitempty"`
 }
 
 type definitionManifestMember struct {
@@ -55,6 +69,13 @@ members:
   # - repo: acme/api
   #   base_ref: main         # optional; defaults to the repo's default branch
   # - repo: acme/ui
+
+# Every other file here is copied into each instance and kept in step by
+# ` + "`z workspace sync`" + `. Files you edit inside an instance are never overwritten.
+# sync:
+#   ignore:
+#     paths:
+#       - scratch/
 `
 
 // readDefinition loads one definition. A manifest that parses but cannot be
@@ -81,6 +102,8 @@ func readDefinition(root, name string) (Definition, error) {
 	if d.BranchPattern == "" {
 		d.BranchPattern = DefaultBranchPattern
 	}
+
+	d.SyncIgnore = dm.Sync.Ignore.Paths
 
 	d.Members = make([]Member, len(dm.Members))
 	for i, dmm := range dm.Members {

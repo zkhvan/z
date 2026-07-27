@@ -125,7 +125,29 @@ func (s *Service) Create(_ context.Context, name string, opts CreateOptions) err
 		mf.Members[i] = manifestMemberFromMember(m)
 	}
 
-	return writeManifest(instanceDir, mf)
+	if err := writeManifest(instanceDir, mf); err != nil {
+		return err
+	}
+
+	if opts.From == "" {
+		return nil
+	}
+	return s.populate(instanceDir, opts.From, members)
+}
+
+// populate performs the create-time copy. It is reconciliation against an absent
+// ancestor, so there is one code path rather than two. A failure leaves a valid
+// instance with accurate partial state that `z workspace sync` completes, which
+// is why create needs no rollback.
+func (s *Service) populate(instanceDir, from string, members []Member) error {
+	def, err := s.Definition(from)
+	if err != nil {
+		return err
+	}
+	if _, err := s.sync(instanceDir, def, members, SyncOptions{}); err != nil {
+		return err
+	}
+	return nil
 }
 
 // resolveCreateMembers produces the final member set before anything is

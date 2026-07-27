@@ -17,7 +17,11 @@ func TestWorkspace_registers_every_subcommand(t *testing.T) {
 		registered[sub.Name()] = true
 	}
 
-	for _, name := range []string{"archive", "checkout", "create", "definition", "delete", "list", "materialize"} {
+	want := []string{
+		"archive", "checkout", "create", "definition",
+		"delete", "list", "materialize", "sync",
+	}
+	for _, name := range want {
 		if !registered[name] {
 			t.Errorf("subcommand %q is not registered", name)
 		}

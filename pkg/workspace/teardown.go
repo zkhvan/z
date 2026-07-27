@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	gitlib "github.com/zkhvan/z/pkg/git"
+	"github.com/zkhvan/z/pkg/workspace/wssync"
 )
 
 // TeardownOptions applies to both Archive and Delete. Force accepts data loss
@@ -170,7 +172,7 @@ func (s *Service) planTeardown(
 	}
 
 	if mode == teardownDelete {
-		unmanaged, err := unmanagedEntries(instanceDir, members)
+		unmanaged, err := s.unmanagedEntries(instanceDir, members)
 		if err != nil {
 			return nil, problems, err
 		}
@@ -203,32 +205,55 @@ func (s *Service) executeTeardownStep(ctx context.Context, step teardownStep, op
 	return nil
 }
 
-// unmanagedEntries reports instance directory entries z did not put there. Their
-// content exists nowhere else, unlike worktree content, which the canonical
-// clone still holds.
-func unmanagedEntries(instanceDir string, members []Member) ([]string, error) {
-	entries, err := os.ReadDir(instanceDir)
+// unmanagedEntries reports instance content that exists nowhere else. The test
+// is recoverability, which is what the guard always meant: worktree content is
+// held by the canonical clone, a synced file still matching what z wrote is held
+// by the definition, and ignored junk is held by nobody who cares. Everything
+// else is only here.
+func (s *Service) unmanagedEntries(instanceDir string, members []Member) ([]string, error) {
+	tree, err := wssync.Scan(instanceDir, s.instanceIgnores(members))
 	if err != nil {
-		return nil, fmt.Errorf("reading instance directory %s: %w", instanceDir, err)
+		return nil, err
 	}
 
-	managed := map[string]bool{".z": true}
-	for _, m := range members {
-		managed[m.BaseName()] = true
+	recorded, err := wssync.LoadState(instanceDir)
+	if err != nil {
+		return nil, err
 	}
 
-	var unmanaged []string
-	for _, e := range entries {
-		if managed[e.Name()] {
-			continue
+	return unrecoverable("", tree, recorded), nil
+}
+
+func unrecoverable(path string, current, recorded *wssync.Entry) []string {
+	switch {
+	case current == nil, current.Kind == wssync.KindUntracked:
+		return nil
+	case current.Kind == wssync.KindDirectory:
+		if len(current.Contents) == 0 && path != "" {
+			// Nothing inside to lose, but a hand-made directory is still not
+			// z's, so it stays visible rather than being silently removed.
+			return []string{path + "/"}
 		}
-		name := e.Name()
-		if e.IsDir() {
-			name += "/"
+		names := make([]string, 0, len(current.Contents))
+		for name := range current.Contents {
+			names = append(names, name)
 		}
-		unmanaged = append(unmanaged, name)
+		sort.Strings(names)
+
+		var out []string
+		for _, name := range names {
+			child := path + name
+			if path != "" {
+				child = path + "/" + name
+			}
+			out = append(out, unrecoverable(child, current.Contents[name], recorded)...)
+		}
+		return out
+	case current.Equal(wssync.Lookup(recorded, path), false):
+		return nil
+	default:
+		return []string{path}
 	}
-	return unmanaged, nil
 }
 
 type teardownProblems struct {

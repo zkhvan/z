@@ -423,3 +423,64 @@ func assertWorktreeRegistered(t *testing.T, canonical, worktree string) {
 		t.Fatalf("canonical %s does not register %s:\n%s", canonical, worktree, output)
 	}
 }
+
+// setupSyncedTeardownTest builds an instance populated from a definition, so the
+// delete guard has real sync state to classify.
+func setupSyncedTeardownTest(t *testing.T, ignore string) (serviceTestDir, *workspace.Service) {
+	t.Helper()
+	td := setupServiceTestDir(t)
+	definitions := filepath.Join(td.root, "definitions")
+	assert.NoError(t, os.MkdirAll(filepath.Join(definitions, "feature", ".z"), 0o700))
+	writeFile(t, filepath.Join(definitions, "feature", ".z", "definition.yaml"),
+		"version: 1\nmembers:\n  - repo: owner/repo\n")
+	writeFile(t, filepath.Join(definitions, "feature", "CLAUDE.md"), "v1\n")
+
+	cfg := setupServiceConfig(t, td, `
+projects:
+  root: $PROJECTSDIR
+workspaces:
+  root: $WORKSPACESDIR
+  definitions_root: `+definitions+ignore+`
+`)
+	svc, err := workspace.NewService(cfg)
+	assert.NoError(t, err)
+	initGitRepo(t, filepath.Join(td.projects, "owner", "repo"))
+	return td, svc
+}
+
+func TestDelete_unmodified_synced_file_does_not_block_the_delete(t *testing.T) {
+	requireGit(t)
+	td, svc := setupSyncedTeardownTest(t, "")
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{From: "feature"}))
+	assertFileExists(t, filepath.Join(td.workspaces, "login", "CLAUDE.md"))
+
+	err := svc.Delete(context.Background(), "login", workspace.TeardownOptions{})
+
+	assert.NoError(t, err)
+	assertPathMissing(t, filepath.Join(td.workspaces, "login"))
+}
+
+func TestDelete_locally_modified_synced_file_blocks_the_delete(t *testing.T) {
+	requireGit(t)
+	td, svc := setupSyncedTeardownTest(t, "")
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{From: "feature"}))
+	writeFile(t, filepath.Join(td.workspaces, "login", "CLAUDE.md"), "my edits\n")
+
+	err := svc.Delete(context.Background(), "login", workspace.TeardownOptions{})
+
+	assertErrorContains(t, err, "files not managed by z")
+	assertErrorContains(t, err, "CLAUDE.md")
+	assertFileExists(t, filepath.Join(td.workspaces, "login", "CLAUDE.md"))
+}
+
+func TestDelete_ignored_junk_does_not_block_the_delete(t *testing.T) {
+	requireGit(t)
+	td, svc := setupSyncedTeardownTest(t, "\n  sync:\n    ignore:\n      - .DS_Store")
+	assert.NoError(t, svc.Create(context.Background(), "login", workspace.CreateOptions{From: "feature"}))
+	writeFile(t, filepath.Join(td.workspaces, "login", ".DS_Store"), "junk\n")
+
+	err := svc.Delete(context.Background(), "login", workspace.TeardownOptions{})
+
+	assert.NoError(t, err)
+	assertPathMissing(t, filepath.Join(td.workspaces, "login"))
+}

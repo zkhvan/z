@@ -10,6 +10,7 @@ import (
 	deleteCmd "github.com/zkhvan/z/pkg/cmd/workspace/delete"
 	listCmd "github.com/zkhvan/z/pkg/cmd/workspace/list"
 	materializeCmd "github.com/zkhvan/z/pkg/cmd/workspace/materialize"
+	syncCmd "github.com/zkhvan/z/pkg/cmd/workspace/sync"
 	"github.com/zkhvan/z/pkg/cmdutil"
 )
 
@@ -26,6 +27,7 @@ func NewCmdWorkspace(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(deleteCmd.NewCmdDelete(f))
 	cmd.AddCommand(listCmd.NewCmdList(f))
 	cmd.AddCommand(materializeCmd.NewCmdMaterialize(f))
+	cmd.AddCommand(syncCmd.NewCmdSync(f))
 
 	return cmd
 }

@@ -2,6 +2,7 @@ package create_test
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/zkhvan/z/pkg/assert"
@@ -333,4 +334,33 @@ func TestCreate_from_takes_a_name_not_a_path(t *testing.T) {
 		t.Fatalf("error %v does not wrap ErrInvalidName", err)
 	}
 	h.NoWorkspace("login")
+}
+
+func TestCreate_from_definition_copies_definition_files(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+	h.SeedDefinitionFile("api-feature", "CLAUDE.md", "workspace instructions\n")
+	h.SeedDefinitionExecFile("api-feature", "hooks/post-create", "#!/bin/sh\n")
+
+	if err := h.run("login", "--from", "api-feature"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h.FileContains(filepath.Join("login", "CLAUDE.md"), "workspace instructions\n")
+	h.FileIsExecutable(filepath.Join("login", "hooks", "post-create"))
+	h.SyncState("login").
+		HasVersion(1).
+		FileCount(2).
+		Records("CLAUDE.md").
+		RecordsExecutable("hooks/post-create")
+}
+
+func TestCreate_with_explicit_members_records_no_sync_state(t *testing.T) {
+	h := newCommandTest(t)
+
+	if err := h.run("login", "--member", "owner/repo@feature/login"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h.NoSyncState("login")
 }

@@ -17,6 +17,16 @@ type Config struct {
 	// directory beside the z config file, so it follows a config dir override
 	// rather than reaching the real user config dir.
 	DefinitionsRoot string `json:"definitions_root"`
+
+	Sync SyncConfig `json:"sync"`
+}
+
+type SyncConfig struct {
+	// Ignore is the user's junk list — content no workspace should manage,
+	// wherever it appears. Consulted both when syncing and when delete decides
+	// whether an instance holds anything unrecoverable. No defaults are shipped:
+	// guessing was declined once already, in ZK-2 slice 03.
+	Ignore []string `json:"ignore"`
 }
 
 func NewConfig(cfg cmdutil.Config) (Config, error) {

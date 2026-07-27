@@ -7,7 +7,6 @@ package wstest
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,6 +28,7 @@ type Harness struct {
 	projectsRoot    string
 	definitionsRoot string
 	out             bytes.Buffer
+	errOut          bytes.Buffer
 	tty             bool
 }
 
@@ -79,7 +79,7 @@ func New(t *testing.T) *Harness {
 func (h *Harness) Run(newCmd func(*cmdutil.Factory) *cobra.Command, args ...string) error {
 	h.t.Helper()
 
-	streams := &iolib.IOStreams{In: strings.NewReader(""), Out: &h.out, ErrOut: io.Discard}
+	streams := &iolib.IOStreams{In: strings.NewReader(""), Out: &h.out, ErrOut: &h.errOut}
 	streams.SetTerminal(h.tty)
 	if h.tty {
 		streams.SetColorProfile(colorprofile.TrueColor)
@@ -95,7 +95,7 @@ func (h *Harness) Run(newCmd func(*cmdutil.Factory) *cobra.Command, args ...stri
 	cmd.SilenceErrors = true
 	cmd.SetArgs(args)
 	cmd.SetOut(&h.out)
-	cmd.SetErr(io.Discard)
+	cmd.SetErr(&h.errOut)
 
 	return cmd.Execute()
 }
@@ -249,6 +249,19 @@ func (h *Harness) OutputContains(want string) {
 	h.t.Helper()
 	if !strings.Contains(h.out.String(), want) {
 		h.t.Fatalf("output does not contain %q\ngot: %q", want, h.out.String())
+	}
+}
+
+// ErrOutput is kept separate from Output so a test can assert which stream a
+// message went to: diagnostics belong on stderr, results on stdout.
+func (h *Harness) ErrOutput() string {
+	return h.errOut.String()
+}
+
+func (h *Harness) ErrOutputContains(want string) {
+	h.t.Helper()
+	if !strings.Contains(h.errOut.String(), want) {
+		h.t.Fatalf("stderr does not contain %q\ngot: %q", want, h.errOut.String())
 	}
 }
 

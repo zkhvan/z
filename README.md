@@ -85,4 +85,35 @@ projects:
   # remote_patterns:
   #   - my-personal-org/*
   #   - cli/cli -> ./oss/
+
+workspaces:
+  # The root directory for workspace instances
+  root: ~/Workspaces
+  # Where workspace definitions live; defaults to a directory beside this file
+  # definitions_root: ~/.config/z/definitions
+  sync:
+    # Content no workspace should manage, wherever it appears. Consulted both
+    # when syncing a definition into an instance and when `z workspace delete`
+    # decides whether an instance holds anything unrecoverable. No defaults are
+    # shipped.
+    # ignore:
+    #   - .DS_Store
+    #   - .direnv/
 ```
+
+### Sync ignore patterns
+
+Patterns are deliberately narrower than `.gitignore` — there is no `**` and no
+negation:
+
+| pattern | matches |
+| --- | --- |
+| `.DS_Store` | that base name at any depth |
+| `*.log` | that glob against a base name, at any depth |
+| `build/` | directories only (the trailing slash) |
+| `docs/drafts` | that exact path, anchored to the workspace root |
+
+A definition can add its own patterns under `sync.ignore.paths` in
+`.z/definition.yaml`. Both tiers are advisory; `.z/` and the member worktrees are
+excluded structurally and cannot be re-included, which is what keeps
+`z workspace sync --force` from removing a worktree.
