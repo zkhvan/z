@@ -66,6 +66,53 @@ func TestInit_scaffold_lists_as_healthy(t *testing.T) {
 	}
 }
 
+func TestInit_scaffolds_example_hooks_for_every_phase(t *testing.T) {
+	h := newCommandTest(t)
+
+	if err := h.run("api-feature"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	phases := []string{
+		"pre-create", "post-create",
+		"pre-materialize", "post-materialize",
+		"pre-archive", "post-archive",
+		"pre-delete", "post-delete",
+	}
+	for _, phase := range phases {
+		h.DefinitionFileExists(filepath.Join("api-feature", "hooks", phase+".example"))
+	}
+}
+
+// The .example suffix keeps starters inert, but the executable bit must already
+// be set so that enabling one is a rename, not a rename plus chmod.
+func TestInit_example_hooks_are_executable_debug_starters(t *testing.T) {
+	h := newCommandTest(t)
+
+	if err := h.run("api-feature"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	path := filepath.Join(h.DefinitionsRoot(), "api-feature", "hooks", "post-create.example")
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat example hook: %v", err)
+	}
+	if info.Mode()&0o100 == 0 {
+		t.Fatalf("example hook is not executable: mode %v", info.Mode())
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read example hook: %v", err)
+	}
+	for _, want := range []string{"Z_HOOK_PHASE", "[z hook] phase=", "mv post-create.example post-create"} {
+		if !strings.Contains(string(data), want) {
+			t.Fatalf("example hook missing %q\ngot:\n%s", want, data)
+		}
+	}
+}
+
 func TestInit_existing_definition_is_refused(t *testing.T) {
 	h := newCommandTest(t)
 	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})

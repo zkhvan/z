@@ -33,11 +33,15 @@ func NewCmdInit(f *cmdutil.Factory) *cobra.Command {
 		Short: "Scaffold a workspace definition",
 		Long: heredoc.Doc(`
 			Create a definition directory under the definitions root, holding a
-			starter .z/definition.yaml.
+			starter .z/definition.yaml and a hooks/ directory of inert
+			<phase>.example lifecycle-hook starters.
 
 			The scaffolded definition has no members yet, so it cannot be
 			instantiated until you add them. Its branch pattern defaults to
 			{instance}; the placeholders are {instance} and {repo}.
+
+			Each hooks/<phase>.example prints its environment; drop the
+			.example suffix to enable it at that lifecycle phase.
 		`),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

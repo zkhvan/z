@@ -34,13 +34,21 @@ func (s *Service) Materialize(ctx context.Context, name string) error {
 		return fmt.Errorf("workspace %q manifest is invalid: %w", name, err)
 	}
 
+	def := s.hookDefinition(name, mf.Definition)
+	if err := s.runHook(def, name, instanceDir, HookPreMaterialize); err != nil {
+		return err
+	}
+
 	for _, m := range members {
 		if err := s.materializeMember(ctx, instanceDir, m); err != nil {
 			return fmt.Errorf("materializing %s: %w", m.Repo, err)
 		}
 	}
 
-	return writeMaterializedMarker(instanceDir)
+	if err := writeMaterializedMarker(instanceDir); err != nil {
+		return err
+	}
+	return s.runHook(def, name, instanceDir, HookPostMaterialize)
 }
 
 func (s *Service) materializeMember(ctx context.Context, instanceDir string, m Member) error {

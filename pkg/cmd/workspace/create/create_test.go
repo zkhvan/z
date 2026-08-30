@@ -340,19 +340,19 @@ func TestCreate_from_definition_copies_definition_files(t *testing.T) {
 	h := newCommandTest(t)
 	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
 	h.SeedDefinitionFile("api-feature", "CLAUDE.md", "workspace instructions\n")
-	h.SeedDefinitionExecFile("api-feature", "hooks/post-create", "#!/bin/sh\n")
+	h.SeedDefinitionExecFile("api-feature", "bin/setup", "#!/bin/sh\n")
 
 	if err := h.run("login", "--from", "api-feature"); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
 	h.FileContains(filepath.Join("login", "CLAUDE.md"), "workspace instructions\n")
-	h.FileIsExecutable(filepath.Join("login", "hooks", "post-create"))
+	h.FileIsExecutable(filepath.Join("login", "bin", "setup"))
 	h.SyncState("login").
 		HasVersion(1).
 		FileCount(2).
 		Records("CLAUDE.md").
-		RecordsExecutable("hooks/post-create")
+		RecordsExecutable("bin/setup")
 }
 
 func TestCreate_with_explicit_members_records_no_sync_state(t *testing.T) {
@@ -363,4 +363,58 @@ func TestCreate_with_explicit_members_records_no_sync_state(t *testing.T) {
 	}
 
 	h.NoSyncState("login")
+}
+
+func TestCreate_runs_pre_and_post_create_hooks(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+	// pre-create runs before the instance exists, with cwd at the workspaces
+	// root, so it records itself there.
+	h.SeedDefinitionHook("api-feature", workspace.HookPreCreate,
+		"#!/bin/sh\nprintf '%s' \"$Z_HOOK_PHASE\" > \"$Z_INSTANCE_NAME.pre\"\n")
+	// post-create runs with cwd at the instance directory and full env.
+	h.SeedDefinitionHook("api-feature", workspace.HookPostCreate,
+		"#!/bin/sh\nprintf '%s\\n%s\\n%s\\n' \"$Z_HOOK_PHASE\" \"$Z_INSTANCE_NAME\" \"$Z_DEFINITION_PATH\" > env.out\n")
+
+	if err := h.run("login", "--from", "api-feature"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h.FileContains("login.pre", "pre-create")
+	h.FileContains(filepath.Join("login", "env.out"), "post-create\nlogin\n"+h.DefinitionDir("api-feature")+"\n")
+}
+
+func TestCreate_pre_create_hook_failure_aborts(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+	h.SeedDefinitionHook("api-feature", workspace.HookPreCreate, "#!/bin/sh\nexit 1\n")
+
+	err := h.run("login", "--from", "api-feature")
+
+	wstest.AssertErrorContains(t, err, "pre-create hook failed")
+	h.NoWorkspace("login")
+}
+
+func TestCreate_non_executable_hook_is_an_error(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+	h.SeedDefinitionFile("api-feature", filepath.Join("hooks", "pre-create"), "#!/bin/sh\n")
+
+	err := h.run("login", "--from", "api-feature")
+
+	wstest.AssertErrorContains(t, err, "not executable")
+	h.NoWorkspace("login")
+}
+
+func TestCreate_hooks_are_not_synced_into_the_instance(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+	h.SeedDefinitionHook("api-feature", workspace.HookPostCreate, "#!/bin/sh\n")
+
+	if err := h.run("login", "--from", "api-feature"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h.PathMissing(filepath.Join("login", "hooks"))
+	h.PathMissing(filepath.Join("login", "hooks", "post-create"))
 }

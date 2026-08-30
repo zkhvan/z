@@ -124,6 +124,12 @@ func (h *Harness) DefinitionsRoot() string {
 	return h.definitionsRoot
 }
 
+// DefinitionDir returns a definition's on-disk path, which hooks receive as
+// Z_DEFINITION_PATH.
+func (h *Harness) DefinitionDir(name string) string {
+	return filepath.Join(h.definitionsRoot, name)
+}
+
 // InDir runs the rest of the test from a directory under the workspaces root,
 // with no arguments meaning the root itself. The current directory is one of
 // the few inputs argv cannot express.
@@ -183,6 +189,31 @@ func (h *Harness) SeedDefinitionManifest(name, raw string) {
 func (h *Harness) SeedFile(relPath, content string) {
 	h.t.Helper()
 	h.seedUnder(h.root, relPath, content)
+}
+
+// SeedDefinitionHook writes an executable hook script into a definition. The
+// executable bit matters: a non-executable hook is a hard error, not a no-op.
+func (h *Harness) SeedDefinitionHook(definition string, phase workspace.HookPhase, script string) {
+	h.t.Helper()
+	h.SeedDefinitionExecFile(definition, filepath.Join("hooks", string(phase)), script)
+}
+
+// SeedInstanceFromDefinition writes both a definition and an instance manifest
+// that names it, without running any command, so hook behavior can be arranged
+// directly on an instance that remembers its source definition.
+func (h *Harness) SeedInstanceFromDefinition(instance, definition string, members ...workspace.Member) {
+	h.t.Helper()
+	h.SeedDefinition(definition, "{instance}", members...)
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "version: 1\ndefinition: %s\nmembers:\n", definition)
+	for _, m := range members {
+		fmt.Fprintf(&b, "  - repo: %s\n    branch: %s\n", m.Repo, m.Branch)
+		if m.BaseRef != "" {
+			fmt.Fprintf(&b, "    base_ref: %s\n", m.BaseRef)
+		}
+	}
+	h.SeedManifest(instance, b.String())
 }
 
 func (h *Harness) seedUnder(base, relPath, content string) {

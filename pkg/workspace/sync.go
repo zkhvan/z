@@ -133,11 +133,13 @@ func (s *Service) sync(instanceDir string, def Definition, members []Member, opt
 	return report, transitionErr
 }
 
-// definitionIgnores excludes z's own namespace plus whatever the definition and
-// the user declared.
+// definitionIgnores excludes z's own namespace and the hooks directory, plus
+// whatever the definition and the user declared. hooks/ is a definition-only
+// concern executed in place, so leaking inert copies into instances would only
+// dangle an override affordance that does not exist.
 func (s *Service) definitionIgnores(def Definition) wssync.Matcher {
 	return wssync.Ignores{
-		Structural: []string{".z"},
+		Structural: []string{".z", hooksDirName},
 		Patterns:   append(append([]string{}, def.SyncIgnore...), s.cfg.Sync.Ignore...),
 	}
 }

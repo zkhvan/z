@@ -100,3 +100,27 @@ func TestArchive_force_removes_orphaned_member(t *testing.T) {
 	h.FileExists(filepath.Join("login", ".z", "instance.yaml"))
 	h.OutputContains(`Archived workspace "login"`)
 }
+
+func TestArchive_runs_post_archive_hook(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedInstanceFromDefinition("login", "feature", workspace.Member{Repo: "owner/repo", Branch: "feature/login"})
+	h.SeedDefinitionHook("feature", workspace.HookPostArchive,
+		"#!/bin/sh\nprintf '%s' \"$Z_HOOK_PHASE\" > archived.out\n")
+
+	err := h.run("login", "--force")
+	assert.NoError(t, err)
+
+	h.FileContains(filepath.Join("login", "archived.out"), "post-archive")
+	h.OutputContains(`Archived workspace "login"`)
+}
+
+func TestArchive_pre_archive_hook_failure_aborts(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedInstanceFromDefinition("login", "feature", workspace.Member{Repo: "owner/repo", Branch: "feature/login"})
+	h.SeedDefinitionHook("feature", workspace.HookPreArchive, "#!/bin/sh\nexit 1\n")
+
+	err := h.run("login", "--force")
+
+	wstest.AssertErrorContains(t, err, "pre-archive hook failed")
+	h.FileExists(filepath.Join("login", ".z", "instance.yaml"))
+}

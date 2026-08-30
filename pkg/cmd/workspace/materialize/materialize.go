@@ -60,6 +60,7 @@ func (opts *Options) Run(ctx context.Context) error {
 	svc, err := workspace.NewService(
 		opts.config,
 		workspace.WithExecutor(opts.executor),
+		workspace.WithIOStreams(opts.io),
 	)
 	if err != nil {
 		return err

@@ -11,6 +11,7 @@ import (
 	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/exec"
 	gitlib "github.com/zkhvan/z/pkg/git"
+	"github.com/zkhvan/z/pkg/iolib"
 	"github.com/zkhvan/z/pkg/project"
 )
 
@@ -23,6 +24,10 @@ type Service struct {
 	cacheDir string
 	project  *project.Service
 	git      *gitlib.Client
+	// io is the sink lifecycle hooks stream their stdout/stderr to. It defaults
+	// to the real process streams so a hook is visible even when no caller wired
+	// one in.
+	io *iolib.IOStreams
 }
 
 type ServiceOption func(*Service)
@@ -43,6 +48,13 @@ func WithCacheDir(dir string) ServiceOption {
 	}
 }
 
+// WithIOStreams routes lifecycle hook output to the given streams.
+func WithIOStreams(io *iolib.IOStreams) ServiceOption {
+	return func(s *Service) {
+		s.io = io
+	}
+}
+
 func NewService(cfg cmdutil.Config, opts ...ServiceOption) (*Service, error) {
 	wsCfg, err := NewConfig(cfg)
 	if err != nil {
@@ -53,6 +65,7 @@ func NewService(cfg cmdutil.Config, opts ...ServiceOption) (*Service, error) {
 		cfg:      wsCfg,
 		executor: defaultExecutor,
 		git:      gitlib.NewClient(),
+		io:       iolib.System(),
 	}
 
 	for _, o := range opts {
@@ -116,6 +129,27 @@ func (s *Service) Create(_ context.Context, name string, opts CreateOptions) err
 		return fmt.Errorf("workspace %q already exists at %s", name, instanceDir)
 	}
 
+	// resolveCreateMembers has already proven a non-empty definition loads and is
+	// usable, so this reload cannot fail; it only hands the hooks a Definition. An
+	// empty From yields a zero Definition, i.e. no hooks.
+	var def Definition
+	if opts.From != "" {
+		loaded, err := s.Definition(opts.From)
+		if err != nil {
+			return err
+		}
+		def = loaded
+	}
+
+	// pre-create runs before the instance directory exists, with cwd set to its
+	// parent, which must therefore exist first.
+	if err := os.MkdirAll(s.cfg.Root, 0o700); err != nil {
+		return fmt.Errorf("creating workspaces root: %w", err)
+	}
+	if err := s.runHook(def, name, instanceDir, HookPreCreate); err != nil {
+		return err
+	}
+
 	mf := manifest{
 		Version:    manifestVersion,
 		Definition: opts.From,
@@ -129,10 +163,12 @@ func (s *Service) Create(_ context.Context, name string, opts CreateOptions) err
 		return err
 	}
 
-	if opts.From == "" {
-		return nil
+	if opts.From != "" {
+		if err := s.populate(instanceDir, opts.From, members); err != nil {
+			return err
+		}
 	}
-	return s.populate(instanceDir, opts.From, members)
+	return s.runHook(def, name, instanceDir, HookPostCreate)
 }
 
 // populate performs the create-time copy. It is reconciliation against an absent
@@ -255,6 +291,10 @@ func (s *Service) InitDefinition(_ context.Context, name string) (string, error)
 	contents := fmt.Sprintf(definitionTemplate, definitionVersion)
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 		return "", fmt.Errorf("writing definition manifest: %w", err)
+	}
+
+	if err := writeExampleHooks(dir); err != nil {
+		return "", err
 	}
 
 	return dir, nil

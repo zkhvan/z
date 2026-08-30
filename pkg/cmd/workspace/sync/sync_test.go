@@ -17,7 +17,7 @@ func TestSync_copies_definition_files_and_records_them(t *testing.T) {
 	h.seedInstanceFromDefinition("login", member())
 	h.SeedDefinitionFile("feature", "CLAUDE.md", "v1\n")
 	h.SeedDefinitionFile("feature", ".claude/settings.json", "{}\n")
-	h.SeedDefinitionExecFile("feature", "hooks/post-create", "#!/bin/sh\n")
+	h.SeedDefinitionExecFile("feature", "bin/setup", "#!/bin/sh\n")
 
 	err := h.run("login")
 
@@ -26,14 +26,14 @@ func TestSync_copies_definition_files_and_records_them(t *testing.T) {
 	}
 	h.FileContains(filepath.Join("login", "CLAUDE.md"), "v1\n")
 	h.FileContains(filepath.Join("login", ".claude", "settings.json"), "{}\n")
-	h.FileIsExecutable(filepath.Join("login", "hooks", "post-create"))
+	h.FileIsExecutable(filepath.Join("login", "bin", "setup"))
 
 	h.SyncState("login").
 		HasVersion(1).
 		FileCount(3).
 		Records("CLAUDE.md").
 		Records(".claude/settings.json").
-		RecordsExecutable("hooks/post-create")
+		RecordsExecutable("bin/setup")
 }
 
 func TestSync_definition_metadata_is_not_copied(t *testing.T) {

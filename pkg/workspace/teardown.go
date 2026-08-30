@@ -24,15 +24,18 @@ type TeardownOptions struct {
 // Archive deregisters every member worktree, leaving the instance directory,
 // .z/, and the manifest untouched so it can be re-materialized.
 func (s *Service) Archive(ctx context.Context, name string, opts TeardownOptions) error {
-	_, err := s.teardown(ctx, name, opts, teardownArchive)
-	return err
+	instanceDir, def, err := s.teardown(ctx, name, opts, teardownArchive)
+	if err != nil {
+		return err
+	}
+	return s.runHook(def, name, instanceDir, HookPostArchive)
 }
 
 // Delete deregisters every member worktree before removing the instance
 // directory. The removal happens only after a fully successful teardown, so a
 // failure never strands registrations pointing into a directory that is gone.
 func (s *Service) Delete(ctx context.Context, name string, opts TeardownOptions) error {
-	instanceDir, err := s.teardown(ctx, name, opts, teardownDelete)
+	instanceDir, def, err := s.teardown(ctx, name, opts, teardownDelete)
 	if err != nil {
 		return err
 	}
@@ -40,7 +43,7 @@ func (s *Service) Delete(ctx context.Context, name string, opts TeardownOptions)
 	if err := os.RemoveAll(instanceDir); err != nil {
 		return fmt.Errorf("removing instance directory %s: %w", instanceDir, err)
 	}
-	return nil
+	return s.runHook(def, name, instanceDir, HookPostDelete)
 }
 
 type teardownMode int
@@ -74,9 +77,9 @@ func (s *Service) teardown(
 	name string,
 	opts TeardownOptions,
 	mode teardownMode,
-) (string, error) {
+) (string, Definition, error) {
 	if err := ValidateName(name); err != nil {
-		return "", err
+		return "", Definition{}, err
 	}
 
 	instanceDir := filepath.Join(s.cfg.Root, name)
@@ -84,9 +87,9 @@ func (s *Service) teardown(
 	if err != nil {
 		if os.IsNotExist(err) {
 			manifestPath := filepath.Join(instanceDir, manifestRelPath)
-			return "", fmt.Errorf("workspace %q has not been created: missing %s", name, manifestPath)
+			return "", Definition{}, fmt.Errorf("workspace %q has not been created: missing %s", name, manifestPath)
 		}
-		return "", err
+		return "", Definition{}, err
 	}
 
 	members := make([]Member, len(mf.Members))
@@ -94,24 +97,36 @@ func (s *Service) teardown(
 		members[i] = memberFromManifest(mm)
 	}
 	if err = ValidateMembers(members); err != nil {
-		return "", fmt.Errorf("workspace %q manifest is invalid: %w", name, err)
+		return "", Definition{}, fmt.Errorf("workspace %q manifest is invalid: %w", name, err)
 	}
 
 	plan, problems, err := s.planTeardown(ctx, instanceDir, members, mode)
 	if err != nil {
-		return "", err
+		return "", Definition{}, err
 	}
 	if !problems.empty() && !opts.Force {
-		return "", problems.err(mode.verb(), name)
+		return "", Definition{}, problems.err(mode.verb(), name)
+	}
+
+	// The pre-* hook runs after the problem gate but before any deregistration,
+	// so a non-zero exit aborts with every worktree still intact. The post-* hook
+	// is the caller's job: archive and delete tear down at different moments.
+	def := s.hookDefinition(name, mf.Definition)
+	prePhase := HookPreArchive
+	if mode == teardownDelete {
+		prePhase = HookPreDelete
+	}
+	if err := s.runHook(def, name, instanceDir, prePhase); err != nil {
+		return "", Definition{}, err
 	}
 
 	for _, step := range plan {
 		if err := s.executeTeardownStep(ctx, step, opts); err != nil {
-			return "", err
+			return "", Definition{}, err
 		}
 	}
 
-	return instanceDir, nil
+	return instanceDir, def, nil
 }
 
 func (s *Service) planTeardown(
