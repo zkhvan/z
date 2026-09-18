@@ -1,11 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/zkhvan/z/internal/build"
 	"github.com/zkhvan/z/pkg/cmd"
+	"github.com/zkhvan/z/pkg/cmdutil"
 	"github.com/zkhvan/z/pkg/factory"
 	"github.com/zkhvan/z/pkg/signal"
 )
@@ -41,6 +43,12 @@ func run() exitCode {
 	}
 
 	if _, err := rootCmd.ExecuteContextC(signal.Notify()); err != nil {
+		// A runtime verb surfaces its script's exit code verbatim; the script's own
+		// output already said everything, so print no banner.
+		var codeErr cmdutil.ExitCodeError
+		if errors.As(err, &codeErr) {
+			return exitCode(codeErr.Code)
+		}
 		fmt.Fprintln(stderr, err)
 		return exitErr
 	}

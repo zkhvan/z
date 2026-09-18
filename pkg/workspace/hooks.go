@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -135,19 +136,36 @@ func (s *Service) runHook(def Definition, name, instancePath string, phase HookP
 		cwd = filepath.Dir(instancePath)
 	}
 
-	cmd := s.executor.Command(path)
-	cmd.SetDir(cwd)
-	cmd.SetEnv(append(os.Environ(),
+	env := append(os.Environ(),
 		"Z_INSTANCE_PATH="+instancePath,
 		"Z_INSTANCE_NAME="+name,
 		"Z_DEFINITION_PATH="+def.Dir,
 		"Z_HOOK_PHASE="+string(phase),
-	))
-	cmd.SetStdout(s.io.Out)
-	cmd.SetStderr(s.io.ErrOut)
+	)
 
-	if err := cmd.Run(); err != nil {
+	// Hooks are non-interactive (nil stdin) and wrap a non-zero exit into a
+	// phase-labeled error; the runtime contract shares the kernel below but
+	// keeps its own stdin and exit-code policy.
+	if err := s.runScript(path, cwd, env, nil); err != nil {
 		return fmt.Errorf("%s hook failed: %w", phase, err)
 	}
 	return nil
+}
+
+// runScript is the exec-with-cwd-and-env kernel shared by lifecycle hooks and
+// the runtime contract. It wires cwd, env, and stdio, passes args as positional
+// arguments, and returns the command's raw error (an exit error carrying
+// ExitCode() for a non-zero exit). Resolution, error wrapping, and exit-code
+// interpretation are the caller's: hooks pass a nil stdin and wrap failures;
+// the runtime passes real stdin and reads the code back off the error.
+func (s *Service) runScript(path, cwd string, env []string, in io.Reader, args ...string) error {
+	cmd := s.executor.Command(path, args...)
+	cmd.SetDir(cwd)
+	cmd.SetEnv(env)
+	if in != nil {
+		cmd.SetStdin(in)
+	}
+	cmd.SetStdout(s.io.Out)
+	cmd.SetStderr(s.io.ErrOut)
+	return cmd.Run()
 }

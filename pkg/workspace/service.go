@@ -270,10 +270,24 @@ func sortedKeys(m map[string]string) []string {
 	return keys
 }
 
+// InitDefinitionOptions carries scaffold-time choices.
+type InitDefinitionOptions struct {
+	// Runtime names a starter runtime template to scaffold under runtime/. Empty
+	// scaffolds no runtime; an unknown name is refused with the supported set.
+	Runtime string
+}
+
 // InitDefinition scaffolds a definition directory. The result is intentionally
 // not yet instantiable: it has no members until the user adds them.
-func (s *Service) InitDefinition(_ context.Context, name string) (string, error) {
+func (s *Service) InitDefinition(_ context.Context, name string, opts InitDefinitionOptions) (string, error) {
 	if err := ValidateDefinitionName(name); err != nil {
+		return "", err
+	}
+
+	// Resolve the runtime template before writing anything, so an unknown
+	// --runtime fails before it scaffolds a half-built definition.
+	scaffoldRuntime, err := runtimeScaffold(opts.Runtime)
+	if err != nil {
 		return "", err
 	}
 
@@ -295,6 +309,12 @@ func (s *Service) InitDefinition(_ context.Context, name string) (string, error)
 
 	if err := writeExampleHooks(dir); err != nil {
 		return "", err
+	}
+
+	if scaffoldRuntime != nil {
+		if err := scaffoldRuntime(dir); err != nil {
+			return "", err
+		}
 	}
 
 	return dir, nil

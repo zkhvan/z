@@ -113,6 +113,70 @@ func TestInit_example_hooks_are_executable_debug_starters(t *testing.T) {
 	}
 }
 
+// The orbstack template must land a complete, live runtime: four executable
+// scripts that drive orb, a cloud-init seed, and a pre-delete hook that removes
+// the machine when the workspace is deleted.
+func TestInit_runtime_orbstack_scaffolds_the_contract(t *testing.T) {
+	h := newCommandTest(t)
+
+	if err := h.run("api-feature", "--runtime", "orbstack"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	for _, verb := range []string{"up", "exec", "down", "status"} {
+		rel := filepath.Join("api-feature", "runtime", verb)
+		h.DefinitionFileExists(rel)
+		path := filepath.Join(h.DefinitionsRoot(), rel)
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("stat runtime/%s: %v", verb, err)
+		}
+		if info.Mode()&0o100 == 0 {
+			t.Fatalf("runtime/%s is not executable: mode %v", verb, info.Mode())
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read runtime/%s: %v", verb, err)
+		}
+		if !strings.Contains(string(data), "orb") {
+			t.Fatalf("runtime/%s does not drive orb:\n%s", verb, data)
+		}
+	}
+
+	h.DefinitionFileExists(filepath.Join("api-feature", "runtime", "user-data.yml"))
+
+	hookPath := filepath.Join(h.DefinitionsRoot(), "api-feature", "hooks", "pre-delete")
+	hookData, err := os.ReadFile(hookPath)
+	if err != nil {
+		t.Fatalf("read pre-delete hook: %v", err)
+	}
+	if !strings.Contains(string(hookData), "orb delete") {
+		t.Fatalf("pre-delete hook does not remove the machine:\n%s", hookData)
+	}
+}
+
+func TestInit_without_runtime_scaffolds_no_runtime(t *testing.T) {
+	h := newCommandTest(t)
+
+	if err := h.run("api-feature"); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(h.DefinitionsRoot(), "api-feature", "runtime")); !os.IsNotExist(err) {
+		t.Fatalf("expected no runtime directory, stat error: %v", err)
+	}
+}
+
+func TestInit_unknown_runtime_is_refused(t *testing.T) {
+	h := newCommandTest(t)
+
+	err := h.run("api-feature", "--runtime", "bogus")
+
+	wstest.AssertErrorContains(t, err, "unknown runtime")
+	wstest.AssertErrorContains(t, err, "orbstack")
+	h.NoDefinition("api-feature")
+}
+
 func TestInit_existing_definition_is_refused(t *testing.T) {
 	h := newCommandTest(t)
 	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})

@@ -6,6 +6,7 @@ package wstest
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,6 +31,15 @@ type Harness struct {
 	out             bytes.Buffer
 	errOut          bytes.Buffer
 	tty             bool
+	stdin           string
+}
+
+// WithStdin feeds input to the command's stdin. The runtime contract passes
+// stdin through to the runtime script (an interactive exec attaches to it), so
+// a test proves passthrough by feeding here and asserting the script saw it.
+func (h *Harness) WithStdin(input string) *Harness {
+	h.stdin = input
+	return h
 }
 
 // WithTTY makes the command believe it is writing to a terminal. Terminal
@@ -79,7 +89,7 @@ func New(t *testing.T) *Harness {
 func (h *Harness) Run(newCmd func(*cmdutil.Factory) *cobra.Command, args ...string) error {
 	h.t.Helper()
 
-	streams := &iolib.IOStreams{In: strings.NewReader(""), Out: &h.out, ErrOut: &h.errOut}
+	streams := &iolib.IOStreams{In: strings.NewReader(h.stdin), Out: &h.out, ErrOut: &h.errOut}
 	streams.SetTerminal(h.tty)
 	if h.tty {
 		streams.SetColorProfile(colorprofile.TrueColor)
@@ -293,6 +303,33 @@ func (h *Harness) ErrOutputContains(want string) {
 	h.t.Helper()
 	if !strings.Contains(h.errOut.String(), want) {
 		h.t.Fatalf("stderr does not contain %q\ngot: %q", want, h.errOut.String())
+	}
+}
+
+// SeedInstanceRuntimeScript writes an executable runtime verb script directly
+// into an instance, bypassing sync, so runtime wiring can be arranged without a
+// definition or a real container. The executable bit matters: a non-executable
+// runtime script is an error, not a no-op.
+func (h *Harness) SeedInstanceRuntimeScript(instance string, verb workspace.RuntimeVerb, script string) {
+	h.t.Helper()
+	rel := filepath.Join(instance, "runtime", string(verb))
+	h.SeedFile(rel, script)
+	path := filepath.Join(h.root, filepath.FromSlash(rel))
+	if err := os.Chmod(path, 0o700); err != nil {
+		h.t.Fatalf("chmod %q: %v", rel, err)
+	}
+}
+
+// AssertExitCode asserts err carries a runtime exit code, which is how a
+// non-zero script exit surfaces through the command layer without an os.Exit.
+func AssertExitCode(t *testing.T, err error, want int) {
+	t.Helper()
+	var codeErr cmdutil.ExitCodeError
+	if !errors.As(err, &codeErr) {
+		t.Fatalf("error %v is not an ExitCodeError", err)
+	}
+	if codeErr.Code != want {
+		t.Fatalf("exit code = %d, want %d", codeErr.Code, want)
 	}
 }
 

@@ -418,3 +418,20 @@ func TestCreate_hooks_are_not_synced_into_the_instance(t *testing.T) {
 	h.PathMissing(filepath.Join("login", "hooks"))
 	h.PathMissing(filepath.Join("login", "hooks", "post-create"))
 }
+
+// Runtime scripts must reach instances through the ordinary sync mechanism, with
+// no runtime-specific code path: create-from-definition is offline (no git), so
+// this proves propagation and preserved executability in one shot.
+func TestCreate_syncs_runtime_scripts_into_the_instance(t *testing.T) {
+	h := newCommandTest(t)
+	h.SeedDefinition("api-feature", "feat/{instance}", workspace.Member{Repo: "acme/api"})
+	h.SeedDefinitionExecFile("api-feature", filepath.Join("runtime", "up"), "#!/bin/sh\necho up\n")
+
+	if err := h.run("login", "--from", "api-feature"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h.FileExists(filepath.Join("login", "runtime", "up"))
+	h.FileIsExecutable(filepath.Join("login", "runtime", "up"))
+	h.SyncState("login").RecordsExecutable(filepath.Join("runtime", "up"))
+}

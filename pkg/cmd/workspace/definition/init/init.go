@@ -18,7 +18,8 @@ type Options struct {
 	config   cmdutil.Config
 	executor exec.Interface
 
-	Name string
+	Name    string
+	Runtime string
 }
 
 func NewCmdInit(f *cmdutil.Factory) *cobra.Command {
@@ -42,6 +43,10 @@ func NewCmdInit(f *cmdutil.Factory) *cobra.Command {
 
 			Each hooks/<phase>.example prints its environment; drop the
 			.example suffix to enable it at that lifecycle phase.
+
+			Pass --runtime to also scaffold a working runtime under runtime/
+			(up, exec, down, status) so instances have a usable container or
+			VM out of the box.
 		`),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,6 +56,9 @@ func NewCmdInit(f *cmdutil.Factory) *cobra.Command {
 			return opts.Run(cmd.Context())
 		},
 	}
+
+	cmd.Flags().StringVar(&opts.Runtime, "runtime", "",
+		"scaffold a starter runtime under runtime/ (supported: orbstack)")
 
 	return cmd
 }
@@ -69,7 +77,9 @@ func (opts *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	dir, err := svc.InitDefinition(ctx, opts.Name)
+	dir, err := svc.InitDefinition(ctx, opts.Name, workspace.InitDefinitionOptions{
+		Runtime: opts.Runtime,
+	})
 	if err != nil {
 		return err
 	}

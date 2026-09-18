@@ -21,7 +21,7 @@ workspaces:
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
 
-	dir, err := svc.InitDefinition(context.Background(), "api-feature")
+	dir, err := svc.InitDefinition(context.Background(), "api-feature", workspace.InitDefinitionOptions{})
 	assert.NoError(t, err)
 
 	want := filepath.Join(td.configDir, "definitions", "api-feature")
@@ -42,7 +42,7 @@ workspaces:
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
 
-	dir, err := svc.InitDefinition(context.Background(), "api-feature")
+	dir, err := svc.InitDefinition(context.Background(), "api-feature", workspace.InitDefinitionOptions{})
 	assert.NoError(t, err)
 
 	if want := filepath.Join(elsewhere, "api-feature"); dir != want {
@@ -59,7 +59,7 @@ workspaces:
 
 	svc, err := workspace.NewService(cfg)
 	assert.NoError(t, err)
-	_, err = svc.InitDefinition(context.Background(), "api-feature")
+	_, err = svc.InitDefinition(context.Background(), "api-feature", workspace.InitDefinitionOptions{})
 	assert.NoError(t, err)
 
 	def, err := svc.Definition("api-feature")
